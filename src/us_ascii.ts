@@ -1,9 +1,4 @@
-import {
-  TextDecoderBase,
-  TextDecoderOptionsEx,
-  TextEncoderBase,
-  TextEncoderOptionsEx,
-} from "./main.ts";
+import { TextDecoderBase, TextEncoderBase } from "./main.ts";
 import { NumberEx, StringEx } from "../deps.ts";
 
 const _LABEL = "US-ASCII";
@@ -35,6 +30,11 @@ function _decode(
   return chars.join("");
 }
 
+function _isUsAsciiChar(test: string): boolean {
+  // deno-lint-ignore no-control-regex
+  return /^[\u{0}-\u{7F}]$/u.test(test);
+}
+
 function _encode(
   input: string,
   fatal: boolean,
@@ -49,8 +49,7 @@ function _encode(
   for (let i = 0; i < input.length; i++) {
     char = input.charAt(i);
 
-    // deno-lint-ignore no-control-regex
-    if (/^[\u{0}-\u{7F}]*$/u.test(input) !== true) {
+    if (_isUsAsciiChar(char) !== true) {
       if (fatal === true) {
         throw new RangeError("input");
       } else {
@@ -64,14 +63,19 @@ function _encode(
 }
 
 export namespace UsAscii {
-  // ignoreBOM は常に無視する
+  type DecoderOptions = {
+    fatal?: boolean;
+    replacementChar?: string;
+  };
+
   export class Decoder extends TextDecoderBase {
-    constructor(options: TextDecoderOptionsEx = {}) {
+    constructor(options: DecoderOptions = {}) {
       super(_LABEL, {
         fatal: options?.fatal === true,
-        ignoreBOM: options?.ignoreBOM === true,
-        replacementChar: StringEx.isNonEmptyString(options?.replacementChar)
-          ? (options.replacementChar as string).substring(0, 1)
+        ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
+        replacementChar: (StringEx.isNonEmptyString(options?.replacementChar) &&
+            _isUsAsciiChar(options?.replacementChar as string))
+          ? (options.replacementChar as string)
           : "?",
       });
     }
@@ -86,14 +90,19 @@ export namespace UsAscii {
     }
   }
 
-  // prependBOM は常に無視する
+  export type EncoderOptions = {
+    fatal?: boolean;
+    replacementChar?: string;
+  };
+
   export class Encoder extends TextEncoderBase {
-    constructor(options: TextEncoderOptionsEx = {}) {
+    constructor(options: EncoderOptions = {}) {
       super(_LABEL, {
         fatal: options?.fatal === true,
-        prependBOM: options?.prependBOM === true,
-        replacementChar: StringEx.isNonEmptyString(options?.replacementChar)
-          ? (options.replacementChar as string).substring(0, 1)
+        prependBOM: false,
+        replacementChar: (StringEx.isNonEmptyString(options?.replacementChar) &&
+            _isUsAsciiChar(options?.replacementChar as string))
+          ? (options.replacementChar as string)
           : "?",
       });
     }

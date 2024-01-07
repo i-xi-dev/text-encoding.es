@@ -1,3 +1,5 @@
+export const BOM = "\u{FEFF}";
+
 const _ErrorMode = {
   EXCEPTION: Symbol("EXCEPTION"),
   REPLACEMENT: Symbol("REPLACEMENT"),
@@ -33,23 +35,13 @@ class _CoderCommon {
   }
 }
 
-export type TextDecoderOptionsEx = TextDecoderOptions & {
-  replacementChar?: string;
-};
-
-type ResolvedTextDecoderOptionsEx = {
+type _ResolvedDecoderOptions = {
   fatal: boolean;
   ignoreBOM: boolean;
   replacementChar: string;
 };
 
-export type TextEncoderOptionsEx = {
-  fatal?: boolean;
-  prependBOM?: boolean;
-  replacementChar?: string;
-};
-
-type ResolvedTextEncoderOptionsEx = {
+type _ResolvedEncoderOptions = {
   fatal: boolean;
   prependBOM: boolean;
   replacementChar: string;
@@ -59,7 +51,7 @@ export abstract class TextDecoderBase extends _CoderCommon
   implements TextDecoder {
   readonly #ignoreBOM: boolean;
 
-  protected constructor(name: string, options: ResolvedTextDecoderOptionsEx) {
+  protected constructor(name: string, options: _ResolvedDecoderOptions) {
     super(name, options.fatal, options.replacementChar);
     this.#ignoreBOM = options.ignoreBOM;
   }
@@ -75,7 +67,7 @@ export abstract class TextEncoderBase
   extends _CoderCommon /* implements TextEncoder */ {
   readonly #prependBOM: boolean;
 
-  protected constructor(name: string, options: ResolvedTextEncoderOptionsEx) {
+  protected constructor(name: string, options: _ResolvedEncoderOptions) {
     super(name, options?.fatal === true, options?.replacementChar ?? "");
     this.#prependBOM = options?.prependBOM === true;
   }
