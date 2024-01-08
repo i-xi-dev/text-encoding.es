@@ -101,14 +101,16 @@ function _replacementChar(replacementChar?: string): string {
   return replacementChar as string;
 }
 
-export namespace Utf32be {
+export namespace Utf32 {
+  /** @deprecated */
   export type EncoderOptions = {
     fatal?: boolean;
     prependBOM?: boolean;
     replacementChar?: string;
   };
 
-  export class Encoder extends TextEncoderBase {
+  /** @deprecated */
+  export class Utf32beEncoder extends TextEncoderBase {
     constructor(options: EncoderOptions = {}) {
       super(_BE_LABEL, {
         fatal: options?.fatal === true,
@@ -135,16 +137,9 @@ export namespace Utf32be {
       throw new Error("not implemented.");
     }
   }
-}
 
-export namespace Utf32le {
-  export type EncoderOptions = {
-    fatal?: boolean;
-    prependBOM?: boolean;
-    replacementChar?: string;
-  };
-
-  export class Encoder extends TextEncoderBase {
+  /** @deprecated */
+  export class Utf32leEncoder extends TextEncoderBase {
     constructor(options: EncoderOptions = {}) {
       super(_LE_LABEL, {
         fatal: options?.fatal === true,

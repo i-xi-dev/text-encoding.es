@@ -64,14 +64,16 @@ function _replacementChar(replacementChar?: string): string {
   return replacementChar as string;
 }
 
-export namespace Utf16be {
+export namespace Utf16 {
+  /** @deprecated */
   export type EncoderOptions = {
     fatal?: boolean;
     prependBOM?: boolean;
     replacementChar?: string;
   };
 
-  export class Encoder extends TextEncoderBase {
+  /** @deprecated */
+  export class Utf16beEncoder extends TextEncoderBase {
     constructor(options: EncoderOptions = {}) {
       super(_BE_LABEL, {
         fatal: options?.fatal === true,
@@ -98,16 +100,9 @@ export namespace Utf16be {
       throw new Error("not implemented.");
     }
   }
-}
 
-export namespace Utf16le {
-  export type EncoderOptions = {
-    fatal?: boolean;
-    prependBOM?: boolean;
-    replacementChar?: string;
-  };
-
-  export class Encoder extends TextEncoderBase {
+  /** @deprecated */
+  export class Utf16leEncoder extends TextEncoderBase {
     constructor(options: EncoderOptions = {}) {
       super(_LE_LABEL, {
         fatal: options?.fatal === true,

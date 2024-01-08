@@ -7,8 +7,6 @@ const _ErrorMode = {
 
 type _ErrorMode = typeof _ErrorMode[keyof typeof _ErrorMode];
 
-export type EncoderErrorMode = "fatal" | "html";
-
 class _CoderCommon {
   readonly #name: string;
   readonly #errorMode: _ErrorMode;
@@ -68,8 +66,8 @@ export abstract class TextEncoderBase
   readonly #prependBOM: boolean;
 
   protected constructor(name: string, options: _ResolvedEncoderOptions) {
-    super(name, options?.fatal === true, options?.replacementChar ?? "");
-    this.#prependBOM = options?.prependBOM === true;
+    super(name, options.fatal, options.replacementChar);
+    this.#prependBOM = options.prependBOM;
   }
 
   get prependBOM(): boolean {
