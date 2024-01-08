@@ -20,7 +20,7 @@ function _decode(
   const chars = Array.from(bytes, (byte) => {
     if (NumberEx.Uint7.isUint7(byte) !== true) {
       if (fatal === true) {
-        throw RangeError("input[*]");
+        throw new TypeError("input[*]");
       } else {
         return replacementChar;
       }
@@ -51,7 +51,7 @@ function _encode(
 
     if (_isUsAsciiChar(char) !== true) {
       if (fatal === true) {
-        throw new RangeError("input");
+        throw new TypeError("input");
       } else {
         char = replacementChar;
       }
@@ -60,6 +60,18 @@ function _encode(
     bytes[i] = char.charCodeAt(0);
   }
   return bytes;
+}
+
+const _defaultReplacementChar = "?";
+
+function _replacementChar(replacementChar?: string): string {
+  if (StringEx.isNonEmptyString(replacementChar) !== true) {
+    return _defaultReplacementChar;
+  }
+  if (_isUsAsciiChar(replacementChar as string) !== true) {
+    return _defaultReplacementChar;
+  }
+  return replacementChar as string;
 }
 
 export namespace UsAscii {
@@ -73,10 +85,7 @@ export namespace UsAscii {
       super(_LABEL, {
         fatal: options?.fatal === true,
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
-        replacementChar: (StringEx.isNonEmptyString(options?.replacementChar) &&
-            _isUsAsciiChar(options?.replacementChar as string))
-          ? (options.replacementChar as string)
-          : "?",
+        replacementChar: _replacementChar(options?.replacementChar),
       });
     }
 
@@ -100,10 +109,7 @@ export namespace UsAscii {
       super(_LABEL, {
         fatal: options?.fatal === true,
         prependBOM: false,
-        replacementChar: (StringEx.isNonEmptyString(options?.replacementChar) &&
-            _isUsAsciiChar(options?.replacementChar as string))
-          ? (options.replacementChar as string)
-          : "?",
+        replacementChar: _replacementChar(options?.replacementChar),
       });
     }
 

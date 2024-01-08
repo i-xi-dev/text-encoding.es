@@ -1,51 +1,22 @@
-import { BOM, isString } from "./main.ts";
-import { Encoding } from "./encoding.ts";
+import { BOM, TextEncoderBase } from "./main.ts";
+import { StringEx } from "../deps.ts";
 
 const _BE_LABEL = "utf-16be";
 const _LE_LABEL = "utf-16le";
 
-const _decoderDiscardBOM: Map<string, TextDecoder> = new Map();
-const _decoderPreserveBOM: Map<string, TextDecoder> = new Map();
-
-function _getDecoder(label: string, ignoreBOM?: boolean): TextDecoder {
-  if (ignoreBOM === true) {
-    // preserve BOM
-    if (!_decoderPreserveBOM.has(label)) {
-      _decoderPreserveBOM.set(
-        label,
-        new TextDecoder(label, {
-          fatal: true,
-          ignoreBOM: true,
-        }),
-      );
-    }
-    return _decoderPreserveBOM.get(label) as TextDecoder;
-  } else {
-    // discard BOM
-    if (!_decoderDiscardBOM.has(label)) {
-      _decoderDiscardBOM.set(
-        label,
-        new TextDecoder(label, {
-          fatal: true,
-          ignoreBOM: false,
-        }),
-      );
-    }
-    return _decoderDiscardBOM.get(label) as TextDecoder;
-  }
-}
-
 function _encode(
   label: string,
   input: string,
-  options: Encoding.EncodeOptions,
+  fatal: boolean, //TODO 単独のサロゲートの場合のみ？
+  prependBOM: boolean,
+  replacementChar: string,
 ): Uint8Array {
-  if (isString(input) !== true) {
+  if (StringEx.isString(input) !== true) {
     throw new TypeError("input");
   }
 
   let chars: string;
-  if ((options?.prependBOM === true) && (input.startsWith(BOM) !== true)) {
+  if ((prependBOM === true) && (input.startsWith(BOM) !== true)) {
     chars = BOM + input;
   } else {
     chars = input;
@@ -54,44 +25,85 @@ function _encode(
   const bytesPerElement = Uint16Array.BYTES_PER_ELEMENT;
   const buffer = new ArrayBuffer(chars.length * bytesPerElement);
   const view = new DataView(buffer);
-  for (let i = 0; i < chars.length; i++) {
-    view.setUint16(
-      i * bytesPerElement,
-      chars.charCodeAt(i),
-      label === _LE_LABEL,
-    );
+  let charCount = 0;
+  for (const rune of chars) {
+    if (StringEx.CodePoint.isSurrogateCodePoint(rune.codePointAt(0))) {
+      if (fatal === true) {
+        throw new TypeError("input[*]");
+      } else {
+        view.setUint16(
+          charCount * bytesPerElement,
+          replacementChar.charCodeAt(0),
+          label === _LE_LABEL,
+        );
+        charCount = charCount + 1;
+      }
+    }
+
+    for (let i = 0; i < rune.length; i++) {
+      view.setUint16(
+        charCount * bytesPerElement,
+        rune.charCodeAt(i),
+        label === _LE_LABEL,
+      );
+      charCount = charCount + 1;
+    }
   }
   return new Uint8Array(buffer);
 }
 
-export namespace Utf16be {
-  export function decode(
-    input: BufferSource = new Uint8Array(0),
-    options: Encoding.DecodeOptions = {},
-  ): string {
-    return _getDecoder(_BE_LABEL, options?.ignoreBOM).decode(input);
-  }
+const _defaultReplacementChar = "\u{FFFD}";
 
-  export function encode(
-    input = "",
-    options: Encoding.EncodeOptions = {},
-  ): Uint8Array {
-    return _encode(_BE_LABEL, input, options);
+function _replacementChar(replacementChar?: string): string {
+  if (StringEx.isNonEmptyString(replacementChar) !== true) {
+    return _defaultReplacementChar;
+  }
+  if ((replacementChar as string).length !== 1) {
+    return _defaultReplacementChar;
+  }
+  return replacementChar as string;
+}
+
+export namespace Utf16be {
+  export type EncoderOptions = {
+    fatal?: boolean;
+    prependBOM?: boolean;
+    replacementChar?: string;
+  };
+
+  export class Encoder extends TextEncoderBase {
+    constructor(options: EncoderOptions = {}) {
+      super(_BE_LABEL, {
+        fatal: options?.fatal === true,
+        prependBOM: options?.prependBOM === true,
+        replacementChar: _replacementChar(options?.replacementChar),
+      });
+    }
+
+    override encode(input = ""): Uint8Array {
+      return _encode(
+        _BE_LABEL,
+        input,
+        this.fatal,
+        this.prependBOM,
+        this._replacementChar,
+      );
+    }
+
+    override encodeInto(
+      source: string,
+      destination: Uint8Array,
+    ): TextEncoderEncodeIntoResult {
+      //TODO
+      throw new Error("not implemented.");
+    }
   }
 }
 
 export namespace Utf16le {
-  export function decode(
-    input: BufferSource = new Uint8Array(0),
-    options: Encoding.DecodeOptions = {},
-  ): string {
-    return _getDecoder(_LE_LABEL, options?.ignoreBOM).decode(input);
-  }
-
-  export function encode(
-    input = "",
-    options: Encoding.EncodeOptions = {},
-  ): Uint8Array {
-    return _encode(_LE_LABEL, input, options);
-  }
+  export type EncoderOptions = {
+    fatal?: boolean;
+    prependBOM?: boolean;
+    replacementChar?: string;
+  };
 }
