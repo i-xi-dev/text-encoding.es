@@ -1,5 +1,5 @@
 import { BOM, TextDecoderBase, TextEncoderBase } from "./main.ts";
-import { NumberEx, StringEx } from "../deps.ts";
+import { CodePoint, StringEx, Uint32 } from "../deps.ts";
 
 const _BE_LABEL = "utf-32be";
 const _LE_LABEL = "utf-32le";
@@ -18,13 +18,13 @@ const _LE_LABEL = "utf-32le";
 //     throw new TypeError("input");
 //   }
 
-//   if (view.byteLength % NumberEx.Uint32.BYTES !== 0) {
+//   if (view.byteLength % Uint32.BYTES !== 0) {
 //     throw new TypeError("input");
 //   }
 
 //   const runes = [];
 //   let codePoint: number;
-//   for (let i = 0; i < view.byteLength; i = i + NumberEx.Uint32.BYTES) {
+//   for (let i = 0; i < view.byteLength; i = i + Uint32.BYTES) {
 //     codePoint = view.getUint32(i, label === _LE_LABEL);
 //     if (CodePoint.isCodePoint(codePoint) !== true) {
 //       throw new TypeError("input[*]");
@@ -60,17 +60,17 @@ function _encode(
     runes = [...input];
   }
 
-  const buffer = new ArrayBuffer(runes.length * NumberEx.Uint32.BYTES);
+  const buffer = new ArrayBuffer(runes.length * Uint32.BYTES);
   const view = new DataView(buffer);
   let runeCount = 0;
   for (const rune of runes) {
     const codePoint = rune.codePointAt(0) as number;
-    if (StringEx.CodePoint.isSurrogateCodePoint(codePoint)) {
+    if (CodePoint.isSurrogateCodePoint(codePoint)) {
       if (fatal === true) {
         throw new TypeError("input[*]");
       } else {
         view.setUint32(
-          runeCount * NumberEx.Uint32.BYTES,
+          runeCount * Uint32.BYTES,
           replacementChar.codePointAt(0) as number,
           label === _LE_LABEL,
         );
@@ -80,7 +80,7 @@ function _encode(
     }
 
     view.setUint32(
-      runeCount * NumberEx.Uint32.BYTES,
+      runeCount * Uint32.BYTES,
       codePoint,
       label === _LE_LABEL,
     );

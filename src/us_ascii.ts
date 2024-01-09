@@ -1,5 +1,5 @@
 import { TextDecoderBase, TextEncoderBase } from "./main.ts";
-import { NumberEx, StringEx } from "../deps.ts";
+import { StringEx, Uint7 } from "../deps.ts";
 
 const _LABEL = "US-ASCII";
 
@@ -18,7 +18,7 @@ function _decode(
   }
 
   const chars = Array.from(bytes, (byte) => {
-    if (NumberEx.Uint7.isUint7(byte) !== true) {
+    if (Uint7.isUint7(byte) !== true) {
       if (fatal === true) {
         throw new TypeError("input[*]");
       } else {

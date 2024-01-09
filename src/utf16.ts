@@ -1,5 +1,5 @@
 import { BOM, TextEncoderBase } from "./main.ts";
-import { NumberEx, StringEx } from "../deps.ts";
+import { CodePoint, StringEx, Uint16 } from "../deps.ts";
 
 const _BE_LABEL = "utf-16be";
 const _LE_LABEL = "utf-16le";
@@ -22,16 +22,16 @@ function _encode(
     chars = input;
   }
 
-  const buffer = new ArrayBuffer(chars.length * NumberEx.Uint16.BYTES);
+  const buffer = new ArrayBuffer(chars.length * Uint16.BYTES);
   const view = new DataView(buffer);
   let charCount = 0;
   for (const rune of chars) {
-    if (StringEx.CodePoint.isSurrogateCodePoint(rune.codePointAt(0))) {
+    if (CodePoint.isSurrogateCodePoint(rune.codePointAt(0))) {
       if (fatal === true) {
         throw new TypeError("input[*]");
       } else {
         view.setUint16(
-          charCount * NumberEx.Uint16.BYTES,
+          charCount * Uint16.BYTES,
           replacementChar.charCodeAt(0),
           label === _LE_LABEL,
         );
@@ -42,7 +42,7 @@ function _encode(
 
     for (let i = 0; i < rune.length; i++) {
       view.setUint16(
-        charCount * NumberEx.Uint16.BYTES,
+        charCount * Uint16.BYTES,
         rune.charCodeAt(i),
         label === _LE_LABEL,
       );

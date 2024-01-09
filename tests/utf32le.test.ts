@@ -394,7 +394,7 @@ Deno.test("Utf32.Utf32leEncoder.encode(string, {}) - prependBOM", () => {
 });
 
 Deno.test("Utf32.Utf32leEncoder.encode(string, {}) - fatal", () => {
-  const encoder = new Utf32.Utf32leEncoder({fatal:true});
+  const encoder = new Utf32.Utf32leEncoder({ fatal: true });
 
   // encode()
   assertStrictEquals(JSON.stringify([...encoder.encode()]), "[]");
