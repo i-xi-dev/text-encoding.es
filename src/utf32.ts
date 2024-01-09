@@ -89,24 +89,13 @@ function _encode(
   return new Uint8Array(buffer);
 }
 
-const _defaultReplacementChar = "\u{FFFD}";
-
-function _replacementChar(replacementChar?: string): string {
-  if (StringEx.isNonEmptyString(replacementChar) !== true) {
-    return _defaultReplacementChar;
-  }
-  if ((replacementChar as string).length !== 1) { //XXX runeもokにすべき？？
-    return _defaultReplacementChar;
-  }
-  return replacementChar as string;
-}
+const _REPLACEMENT_CHAR = "\u{FFFD}";
 
 export namespace Utf32 {
   /** @deprecated */
   export type EncoderOptions = {
     fatal?: boolean;
     prependBOM?: boolean;
-    replacementChar?: string;
   };
 
   /** @deprecated */
@@ -115,7 +104,7 @@ export namespace Utf32 {
       super(_BE_LABEL, {
         fatal: options?.fatal === true,
         prependBOM: options?.prependBOM === true,
-        replacementChar: _replacementChar(options?.replacementChar),
+        replacementChar: _REPLACEMENT_CHAR,
       });
     }
 
@@ -144,7 +133,7 @@ export namespace Utf32 {
       super(_LE_LABEL, {
         fatal: options?.fatal === true,
         prependBOM: options?.prependBOM === true,
-        replacementChar: _replacementChar(options?.replacementChar),
+        replacementChar: _REPLACEMENT_CHAR,
       });
     }
 

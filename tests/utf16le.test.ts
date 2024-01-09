@@ -1,282 +1,219 @@
 import { assertStrictEquals, assertThrows } from "./deps.ts";
-import { Utf16le } from "../mod.ts";
+import { Utf16 } from "../mod.ts";
 
-Deno.test("Utf16le.decode(BufferSource)", () => {
-  // decode()
-  assertStrictEquals(Utf16le.decode(), "");
+const decoder = new TextDecoder("utf-16le");
 
-  // decode(ArrayBuffer)
-  assertStrictEquals(Utf16le.decode(new ArrayBuffer(0)), "");
-  assertStrictEquals(
-    Utf16le.decode(Uint8Array.of(0x41, 0, 0x42, 0, 0x43, 0, 0x44, 0).buffer),
-    "ABCD",
-  );
+Deno.test("Utf16.Utf16leEncoder.encode(string)", () => {
+  const encoder = new Utf16.Utf16leEncoder();
 
-  // decode(Uint8Array)
-  assertStrictEquals(Utf16le.decode(Uint8Array.of()), "");
-  assertStrictEquals(
-    Utf16le.decode(Uint8Array.of(0x41, 0, 0x42, 0, 0x43, 0, 0x44, 0)),
-    "ABCD",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(0x42, 0x30, 0x44, 0x30, 0x46, 0x30),
-    ),
-    "あいう",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0xFF,
-        0xFE,
-        0x42,
-        0x30,
-        0x44,
-        0x30,
-        0x46,
-        0x30,
-      ),
-    ),
-    "あいう",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0xFF,
-        0xFE,
-        0x42,
-        0x30,
-        0x44,
-        0x30,
-        0x40,
-        0xD8,
-        0x0B,
-        0xDC,
-        0x46,
-        0x30,
-      ),
-    ),
-    "あい\u{2000B}う",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0x42,
-        0x30,
-        0xFF,
-        0xFE,
-        0x44,
-        0x30,
-        0x46,
-        0x30,
-      ),
-    ),
-    "あ\uFEFFいう",
-  );
-
-  assertThrows(
-    () => {
-      Utf16le.decode(Uint8Array.of(0xFF));
-    },
-    TypeError,
-    //XXX "input",
-  );
-
-  // decode(any)
-  assertThrows(
-    () => {
-      Utf16le.decode([] as unknown as Uint8Array);
-    },
-    TypeError,
-    //XXX "input",
-  );
-});
-
-Deno.test("Utf16le.decode(BufferSource, {})", () => {
-  const op = { ignoreBOM: true } as const;
-
-  // decode()
-  assertStrictEquals(Utf16le.decode(undefined, op), "");
-
-  // decode(ArrayBuffer)
-  assertStrictEquals(Utf16le.decode(new ArrayBuffer(0), op), "");
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(0x41, 0, 0x42, 0, 0x43, 0, 0x44, 0).buffer,
-      op,
-    ),
-    "ABCD",
-  );
-
-  // decode(Uint8Array)
-  assertStrictEquals(Utf16le.decode(Uint8Array.of(), op), "");
-  assertStrictEquals(
-    Utf16le.decode(Uint8Array.of(0x41, 0, 0x42, 0, 0x43, 0, 0x44, 0), op),
-    "ABCD",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(0x42, 0x30, 0x44, 0x30, 0x46, 0x30),
-      op,
-    ),
-    "あいう",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0xFF,
-        0xFE,
-        0x42,
-        0x30,
-        0x44,
-        0x30,
-        0x46,
-        0x30,
-      ),
-      op,
-    ),
-    "\uFEFFあいう",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0xFF,
-        0xFE,
-        0x42,
-        0x30,
-        0x44,
-        0x30,
-        0x40,
-        0xD8,
-        0x0B,
-        0xDC,
-        0x46,
-        0x30,
-      ),
-      op,
-    ),
-    "\uFEFFあい\u{2000B}う",
-  );
-  assertStrictEquals(
-    Utf16le.decode(
-      Uint8Array.of(
-        0x42,
-        0x30,
-        0xFF,
-        0xFE,
-        0x44,
-        0x30,
-        0x46,
-        0x30,
-      ),
-      op,
-    ),
-    "あ\uFEFFいう",
-  );
-
-  assertThrows(
-    () => {
-      Utf16le.decode(Uint8Array.of(0xFF), op);
-    },
-    TypeError,
-    //XXX "input",
-  );
-
-  // decode(any)
-  assertThrows(
-    () => {
-      Utf16le.decode([] as unknown as Uint8Array, op);
-    },
-    TypeError,
-    //XXX "input",
-  );
-});
-
-Deno.test("Utf16le.encode(string)", () => {
   // encode()
-  assertStrictEquals(JSON.stringify([...Utf16le.encode()]), "[]");
+  assertStrictEquals(JSON.stringify([...encoder.encode()]), "[]");
 
   // encode(string)
-  assertStrictEquals(JSON.stringify([...Utf16le.encode("")]), "[]");
+  assertStrictEquals(JSON.stringify([...encoder.encode("")]), "[]");
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("ABCD")]),
+    JSON.stringify([...encoder.encode("ABCD")]),
     "[65,0,66,0,67,0,68,0]",
   );
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\u0000\u00FF")]),
+    JSON.stringify([...encoder.encode("\u0000\u00FF")]),
     "[0,0,255,0]",
   );
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\u0100")]),
+    JSON.stringify([...encoder.encode("\u0100")]),
     "[0,1]",
   );
 
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\uFEFFあいう")]),
+    JSON.stringify([...encoder.encode("\uFEFFあいう")]),
     "[255,254,66,48,68,48,70,48]",
   );
 
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\uFEFFあい\u{2000B}う")]),
+    JSON.stringify([...encoder.encode("\uFEFFあい\u{2000B}う")]),
     "[255,254,66,48,68,48,64,216,11,220,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uDC00う")]),
+    "[66,48,68,48,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uDC00\uD800う")]),
+    "[66,48,68,48,253,255,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uD800\uD800う")]),
+    "[66,48,68,48,253,255,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uD800\uD7FFう")]),
+    "[66,48,68,48,253,255,255,215,70,48]",
   );
 
   // encode(any)
   assertThrows(
     () => {
-      Utf16le.encode(0 as unknown as string);
+      encoder.encode(0 as unknown as string);
     },
     TypeError,
     "input",
   );
 });
 
-Deno.test("Utf16le.encode(string, {})", () => {
-  const op = { prependBOM: true } as const;
+Deno.test("Utf16.Utf16leEncoder.encode(string, {})", () => {
+  const encoder = new Utf16.Utf16leEncoder({ prependBOM: true });
 
   // encode()
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode(undefined, op)]),
+    JSON.stringify([...encoder.encode(undefined)]),
     "[255,254]",
   );
 
   // encode(string)
-  assertStrictEquals(JSON.stringify([...Utf16le.encode("", op)]), "[255,254]");
+  assertStrictEquals(JSON.stringify([...encoder.encode("")]), "[255,254]");
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("ABCD", op)]),
+    JSON.stringify([...encoder.encode("ABCD")]),
     "[255,254,65,0,66,0,67,0,68,0]",
   );
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\u0000\u00FF", op)]),
+    JSON.stringify([...encoder.encode("\u0000\u00FF")]),
     "[255,254,0,0,255,0]",
   );
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\u0100", op)]),
+    JSON.stringify([...encoder.encode("\u0100")]),
     "[255,254,0,1]",
   );
 
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\uFEFFあいう", op)]),
+    JSON.stringify([...encoder.encode("\uFEFFあいう")]),
     "[255,254,66,48,68,48,70,48]",
   );
 
   assertStrictEquals(
-    JSON.stringify([...Utf16le.encode("\uFEFFあい\u{2000B}う", op)]),
+    JSON.stringify([...encoder.encode("\uFEFFあい\u{2000B}う")]),
     "[255,254,66,48,68,48,64,216,11,220,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uDC00う")]),
+    "[255,254,66,48,68,48,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uDC00\uD800う")]),
+    "[255,254,66,48,68,48,253,255,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uD800\uD800う")]),
+    "[255,254,66,48,68,48,253,255,253,255,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("あい\uD800\uD7FFう")]),
+    "[255,254,66,48,68,48,253,255,255,215,70,48]",
   );
 
   // encode(any)
   assertThrows(
     () => {
-      Utf16le.encode(0 as unknown as string, op);
+      encoder.encode(0 as unknown as string);
     },
     TypeError,
     "input",
   );
 });
 
-Deno.test("Utf16le", () => {
+Deno.test("Utf16.Utf16leEncoder.encode(string, {})", () => {
+  const encoder = new Utf16.Utf16leEncoder({ fatal: true });
+
+  // encode()
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode(undefined)]),
+    "[]",
+  );
+
+  // encode(string)
+  assertStrictEquals(JSON.stringify([...encoder.encode("")]), "[]");
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("ABCD")]),
+    "[65,0,66,0,67,0,68,0]",
+  );
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("\u0000\u00FF")]),
+    "[0,0,255,0]",
+  );
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("\u0100")]),
+    "[0,1]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("\uFEFFあいう")]),
+    "[255,254,66,48,68,48,70,48]",
+  );
+
+  assertStrictEquals(
+    JSON.stringify([...encoder.encode("\uFEFFあい\u{2000B}う")]),
+    "[255,254,66,48,68,48,64,216,11,220,70,48]",
+  );
+
+  assertThrows(
+    () => {
+      encoder.encode("あい\uDC00う");
+    },
+    TypeError,
+    "input[*]",
+  );
+
+  assertThrows(
+    () => {
+      encoder.encode("あい\uDC00\uD800う");
+    },
+    TypeError,
+    "input[*]",
+  );
+
+  assertThrows(
+    () => {
+      encoder.encode("あい\uD800\uD800う");
+    },
+    TypeError,
+    "input[*]",
+  );
+
+  assertThrows(
+    () => {
+      encoder.encode("あい\uD800\uD7FFう");
+    },
+    TypeError,
+    "input[*]",
+  );
+
+  // encode(any)
+  assertThrows(
+    () => {
+      encoder.encode(0 as unknown as string);
+    },
+    TypeError,
+    "input",
+  );
+});
+
+Deno.test("Utf16.Utf16leEncoder", () => {
+  const encoder = new Utf16.Utf16leEncoder();
   const str1 = "👪a👨‍👦👨‍👨‍👦‍👦";
-  const encoded1 = Utf16le.encode(str1);
-  assertStrictEquals(Utf16le.decode(encoded1), str1);
+  const encoded1 = encoder.encode(str1);
+  assertStrictEquals(decoder.decode(encoded1), str1);
+});
+
+Deno.test("Utf16.Utf16leEncoder", () => {
+  const encoder = new Utf16.Utf16leEncoder({ prependBOM: true });
+  const str1 = "👪a👨‍👦👨‍👨‍👦‍👦";
+  const encoded1 = encoder.encode(str1);
+  assertStrictEquals(decoder.decode(encoded1), str1);
 });
