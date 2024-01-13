@@ -1,3 +1,5 @@
+import { _TransformStream, Uint8 } from "../deps.ts";
+
 export const BOM = "\u{FEFF}";
 
 const _ErrorMode = {
@@ -10,14 +12,12 @@ type _ErrorMode = typeof _ErrorMode[keyof typeof _ErrorMode];
 class _CoderCommon {
   readonly #name: string;
   readonly #errorMode: _ErrorMode;
-  readonly #replacementChar: string;
 
-  protected constructor(name: string, fatal: boolean, replacementChar: string) {
+  constructor(name: string, fatal: boolean) {
     this.#name = name;
     this.#errorMode = (fatal === true)
       ? _ErrorMode.EXCEPTION
       : _ErrorMode.REPLACEMENT;
-    this.#replacementChar = replacementChar;
   }
 
   get encoding(): string {
@@ -27,51 +27,117 @@ class _CoderCommon {
   get fatal(): boolean {
     return this.#errorMode === _ErrorMode.EXCEPTION;
   }
-
-  protected get _replacementChar(): string {
-    return this.#replacementChar;
-  }
 }
 
-type _ResolvedDecoderOptions = {
+type _DecoderCommonInit = {
+  name: string;
   fatal: boolean;
+  decodeToChar: (bytes: Array<Uint8>) => string;
   ignoreBOM: boolean;
   replacementChar: string;
 };
 
-type _ResolvedEncoderOptions = {
-  fatal: boolean;
-  prependBOM: boolean;
-  replacementChar: string;
-};
-
-export abstract class TextDecoderBase extends _CoderCommon
-  implements TextDecoder {
+class _DecoderCommon extends _CoderCommon {
+  readonly #decodeToChar: (bytes: Array<Uint8>) => string;
   readonly #ignoreBOM: boolean;
+  readonly #replacementChar: string;
 
-  protected constructor(name: string, options: _ResolvedDecoderOptions) {
-    super(name, options.fatal, options.replacementChar);
-    this.#ignoreBOM = options.ignoreBOM;
+  constructor(init: _DecoderCommonInit) {
+    super(init.name, init.fatal);
+    this.#decodeToChar = init.decodeToChar;
+    this.#ignoreBOM = init.ignoreBOM;
+    this.#replacementChar = init.replacementChar;
   }
 
   get ignoreBOM(): boolean {
     return this.#ignoreBOM;
   }
 
-  abstract decode(input?: BufferSource, options?: TextDecodeOptions): string;
+  get replacementChar(): string {
+    return this.#replacementChar;
+  }
+
+  encodeFromChar(bytes: Array<Uint8>): string {
+    return this.#decodeToChar(bytes);
+  }
 }
 
-export abstract class TextEncoderBase
-  extends _CoderCommon /* implements TextEncoder */ {
-  readonly #prependBOM: boolean;
+type _EncoderCommonInit = {
+  name: string;
+  fatal: boolean;
+  encodeFromChar: (char: string) => Array<Uint8>;
+  prependBOM: boolean;
+  replacementBytes: Array<Uint8>;
+};
 
-  protected constructor(name: string, options: _ResolvedEncoderOptions) {
-    super(name, options.fatal, options.replacementChar);
-    this.#prependBOM = options.prependBOM;
+class _EncoderCommon extends _CoderCommon {
+  readonly #encodeFromChar: (char: string) => Array<Uint8>;
+  readonly #prependBOM: boolean;
+  readonly #replacementBytes: Array<Uint8>;
+
+  constructor(init: _EncoderCommonInit) {
+    super(name, init.fatal);
+    this.#replacementBytes = init.replacementBytes;
+    this.#prependBOM = init.prependBOM;
+    this.#encodeFromChar = init.encodeFromChar;
   }
 
   get prependBOM(): boolean {
     return this.#prependBOM;
+  }
+
+  get replacementBytes(): Array<Uint8> {
+    return this.#replacementBytes;
+  }
+
+  encodeFromChar(char: string): Array<Uint8> {
+    return this.#encodeFromChar(char);
+  }
+}
+
+export abstract class DecoderBase implements TextDecoder {
+  protected readonly _common: _DecoderCommon;
+
+  protected constructor(init: _DecoderCommonInit) {
+    this._common = new _DecoderCommon(init);
+  }
+
+  get encoding(): string {
+    return this._common.encoding;
+  }
+
+  get fatal(): boolean {
+    return this._common.fatal;
+  }
+
+  get ignoreBOM(): boolean {
+    return this._common.ignoreBOM;
+  }
+
+  abstract decode(input?: BufferSource, options?: TextDecodeOptions): string;
+}
+
+//TODO
+// export abstract class DecoderStreamBase implements TextDecoderStream {
+// }
+
+export abstract class EncoderBase /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
+  protected readonly _common: _EncoderCommon;
+
+  protected constructor(init: _EncoderCommonInit) {
+    this._common = new _EncoderCommon(init);
+  }
+
+  get encoding(): string {
+    return this._common.encoding as string;
+  }
+
+  get fatal(): boolean {
+    return this._common.fatal;
+  }
+
+  get prependBOM(): boolean {
+    return this._common.prependBOM;
   }
 
   abstract encode(input?: string): Uint8Array;
@@ -80,4 +146,72 @@ export abstract class TextEncoderBase
     source: string,
     destination: Uint8Array,
   ): TextEncoderEncodeIntoResult;
+}
+
+type _EncoderStreamPending = {
+  highSurrogate: string;
+};
+
+export abstract class EncoderStreamBase
+  implements
+    TransformStream /* implements TextEncoderStream (encodingが"utf-8"ではない為) */ {
+  protected readonly _common: _EncoderCommon;
+
+  protected readonly _pending: _EncoderStreamPending;
+
+  /* readonly */
+  #stream: TransformStream<string, Uint8Array>;
+
+  protected constructor(init: _EncoderCommonInit) {
+    this._common = new _EncoderCommon(init);
+
+    const self = (): EncoderStreamBase => this;
+    const transformer: Transformer<string, Uint8Array> = {
+      transform(
+        chunk: string,
+        controller: TransformStreamDefaultController<Uint8Array>,
+      ): void {
+        const encoded = self()._encodeChunk(chunk);
+        controller.enqueue(encoded);
+      },
+      flush(controller: TransformStreamDefaultController<Uint8Array>): void {
+        if (self()._pending.highSurrogate.length > 0) {
+          controller.enqueue(
+            Uint8Array.from(self()._common.replacementBytes),
+          );
+        }
+      },
+    };
+    // $011 super(transformer);
+    this._pending = Object.seal({
+      highSurrogate: "",
+    });
+    this.#stream = new _TransformStream<string, Uint8Array>(transformer); // $011
+  }
+
+  get encoding(): string {
+    return this._common.encoding;
+  }
+
+  get fatal(): boolean {
+    return this._common.fatal;
+  }
+
+  get prependBOM(): boolean {
+    return this._common.prependBOM;
+  }
+
+  get readable(): ReadableStream {
+    return this.#stream.readable;
+  }
+
+  get writable(): WritableStream {
+    return this.#stream.writable;
+  }
+
+  // get [Symbol.toStringTag](): string {
+  //   return "";
+  // }
+
+  protected abstract _encodeChunk(chunk: string): Uint8Array;
 }
