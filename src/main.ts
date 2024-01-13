@@ -33,7 +33,7 @@ type _DecoderCommonInit = {
   name: string;
   fatal: boolean;
   replacementChar: string;
-  decodeToChar: (
+  decodeToRune: (
     bytes: Array<Uint8>,
     fatal: boolean,
     replacementChar: string,
@@ -42,7 +42,7 @@ type _DecoderCommonInit = {
 };
 
 class _DecoderCommon extends _CoderCommon {
-  readonly #decodeToChar: (
+  readonly #decodeToRune: (
     bytes: Array<Uint8>,
     fatal: boolean,
     replacementChar: string,
@@ -53,7 +53,7 @@ class _DecoderCommon extends _CoderCommon {
   constructor(init: _DecoderCommonInit) {
     super(init.name, init.fatal);
     this.#replacementChar = init.replacementChar;
-    this.#decodeToChar = init.decodeToChar;
+    this.#decodeToRune = init.decodeToRune;
     this.#ignoreBOM = init.ignoreBOM;
   }
 
@@ -65,8 +65,8 @@ class _DecoderCommon extends _CoderCommon {
     return this.#replacementChar;
   }
 
-  encodeFromChar(bytes: Array<Uint8>): string {
-    return this.#decodeToChar(bytes, this.fatal, this.replacementChar);
+  decodeToRune(bytes: Array<Uint8>): string {
+    return this.#decodeToRune(bytes, this.fatal, this.replacementChar);
   }
 }
 
@@ -74,8 +74,8 @@ type _EncoderCommonInit = {
   name: string;
   fatal: boolean;
   replacementBytes: Array<Uint8>;
-  encodeFromChar: (
-    char: string,
+  encodeFromRune: (
+    rune: string,
     fatal: boolean,
     replacementBytes: Array<Uint8>,
   ) => Array<Uint8>;
@@ -83,7 +83,7 @@ type _EncoderCommonInit = {
 };
 
 class _EncoderCommon extends _CoderCommon {
-  readonly #encodeFromChar: (
+  readonly #encodeFromRune: (
     char: string,
     fatal: boolean,
     replacementBytes: Array<Uint8>,
@@ -94,7 +94,7 @@ class _EncoderCommon extends _CoderCommon {
   constructor(init: _EncoderCommonInit) {
     super(name, init.fatal);
     this.#replacementBytes = init.replacementBytes;
-    this.#encodeFromChar = init.encodeFromChar;
+    this.#encodeFromRune = init.encodeFromRune;
     this.#prependBOM = init.prependBOM;
   }
 
@@ -106,8 +106,8 @@ class _EncoderCommon extends _CoderCommon {
     return this.#replacementBytes;
   }
 
-  encodeFromChar(char: string): Array<Uint8> {
-    return this.#encodeFromChar(char, this.fatal, this.replacementBytes);
+  encodeFromRune(char: string): Array<Uint8> {
+    return this.#encodeFromRune(char, this.fatal, this.replacementBytes);
   }
 }
 
