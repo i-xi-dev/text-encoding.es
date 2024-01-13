@@ -32,21 +32,29 @@ class _CoderCommon {
 type _DecoderCommonInit = {
   name: string;
   fatal: boolean;
-  decodeToChar: (bytes: Array<Uint8>) => string;
-  ignoreBOM: boolean;
   replacementChar: string;
+  decodeToChar: (
+    bytes: Array<Uint8>,
+    fatal: boolean,
+    replacementChar: string,
+  ) => string;
+  ignoreBOM: boolean;
 };
 
 class _DecoderCommon extends _CoderCommon {
-  readonly #decodeToChar: (bytes: Array<Uint8>) => string;
+  readonly #decodeToChar: (
+    bytes: Array<Uint8>,
+    fatal: boolean,
+    replacementChar: string,
+  ) => string;
   readonly #ignoreBOM: boolean;
   readonly #replacementChar: string;
 
   constructor(init: _DecoderCommonInit) {
     super(init.name, init.fatal);
+    this.#replacementChar = init.replacementChar;
     this.#decodeToChar = init.decodeToChar;
     this.#ignoreBOM = init.ignoreBOM;
-    this.#replacementChar = init.replacementChar;
   }
 
   get ignoreBOM(): boolean {
@@ -58,28 +66,36 @@ class _DecoderCommon extends _CoderCommon {
   }
 
   encodeFromChar(bytes: Array<Uint8>): string {
-    return this.#decodeToChar(bytes);
+    return this.#decodeToChar(bytes, this.fatal, this.replacementChar);
   }
 }
 
 type _EncoderCommonInit = {
   name: string;
   fatal: boolean;
-  encodeFromChar: (char: string) => Array<Uint8>;
-  prependBOM: boolean;
   replacementBytes: Array<Uint8>;
+  encodeFromChar: (
+    char: string,
+    fatal: boolean,
+    replacementBytes: Array<Uint8>,
+  ) => Array<Uint8>;
+  prependBOM: boolean;
 };
 
 class _EncoderCommon extends _CoderCommon {
-  readonly #encodeFromChar: (char: string) => Array<Uint8>;
+  readonly #encodeFromChar: (
+    char: string,
+    fatal: boolean,
+    replacementBytes: Array<Uint8>,
+  ) => Array<Uint8>;
   readonly #prependBOM: boolean;
   readonly #replacementBytes: Array<Uint8>;
 
   constructor(init: _EncoderCommonInit) {
     super(name, init.fatal);
     this.#replacementBytes = init.replacementBytes;
-    this.#prependBOM = init.prependBOM;
     this.#encodeFromChar = init.encodeFromChar;
+    this.#prependBOM = init.prependBOM;
   }
 
   get prependBOM(): boolean {
@@ -91,7 +107,7 @@ class _EncoderCommon extends _CoderCommon {
   }
 
   encodeFromChar(char: string): Array<Uint8> {
-    return this.#encodeFromChar(char);
+    return this.#encodeFromChar(char, this.fatal, this.replacementBytes);
   }
 }
 
