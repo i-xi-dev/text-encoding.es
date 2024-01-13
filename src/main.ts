@@ -92,7 +92,7 @@ class _EncoderCommon extends _CoderCommon {
   readonly #replacementBytes: Array<Uint8>;
 
   constructor(init: _EncoderCommonInit) {
-    super(name, init.fatal);
+    super(init.name, init.fatal);
     this.#replacementBytes = init.replacementBytes;
     this.#encodeFromRune = init.encodeFromRune;
     this.#prependBOM = init.prependBOM;
