@@ -79,7 +79,14 @@ Deno.test("UsAscii.Decoder.decode(BufferSource, {})", () => {
       decoder.decode(Uint8Array.of(0x0, 0xFF));
     },
     TypeError,
-    "input",
+    "decode-error: [0xFF]",
+  );
+  assertThrows(
+    () => {
+      decoder.decode(Uint8Array.of(0x0, 0xFF, 0x80));
+    },
+    TypeError,
+    "decode-error: [0xFF]",
   );
 
   const c = 1200000;
@@ -208,7 +215,7 @@ Deno.test("UsAscii.Encoder.encode(string, {})", () => {
       JSON.stringify([...encoder.encode("\u0000\u00FF")]);
     },
     TypeError,
-    "input",
+    "encode-error: \u00FF U+00FF",
   );
 
   const c = 1200000;
@@ -223,7 +230,7 @@ Deno.test("UsAscii.Encoder.encode(string, {})", () => {
       encoder.encode("\u0100");
     },
     TypeError,
-    "input",
+    "encode-error: \u0100 U+0100",
   );
 
   assertThrows(
@@ -231,7 +238,7 @@ Deno.test("UsAscii.Encoder.encode(string, {})", () => {
       encoder.encode("あ");
     },
     TypeError,
-    "input",
+    "encode-error: あ U+3042",
   );
 
   // encode(any)

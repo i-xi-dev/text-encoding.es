@@ -1,6 +1,8 @@
-import { _TransformStream, Uint8 } from "../deps.ts";
+import { _TransformStream, Rune, Uint8 } from "../deps.ts";
 
 export const BOM = "\u{FEFF}";
+
+type _RuneEncodedBytes = Array<Uint8>; // [Uint8] | [Uint8,Uint8] | [Uint8,Uint8,Uint8] | [Uint8,Uint8,Uint8,Uint8];
 
 const _ErrorMode = {
   EXCEPTION: Symbol("EXCEPTION"),
@@ -32,27 +34,27 @@ class _CoderCommon {
 type _DecoderCommonInit = {
   name: string;
   fatal: boolean;
-  replacementChar: string;
+  replacementRune: Rune;
   decodeToRune: (
-    bytes: Array<Uint8>,
+    bytes: _RuneEncodedBytes,
     fatal: boolean,
-    replacementChar: string,
-  ) => string;
+    replacementRune: Rune,
+  ) => Rune;
   ignoreBOM: boolean;
 };
 
 class _DecoderCommon extends _CoderCommon {
   readonly #decodeToRune: (
-    bytes: Array<Uint8>,
+    bytes: _RuneEncodedBytes,
     fatal: boolean,
-    replacementChar: string,
-  ) => string;
+    replacementRune: Rune,
+  ) => Rune;
   readonly #ignoreBOM: boolean;
-  readonly #replacementChar: string;
+  readonly #replacementRune: Rune;
 
   constructor(init: _DecoderCommonInit) {
     super(init.name, init.fatal);
-    this.#replacementChar = init.replacementChar;
+    this.#replacementRune = init.replacementRune;
     this.#decodeToRune = init.decodeToRune;
     this.#ignoreBOM = init.ignoreBOM;
   }
@@ -61,35 +63,35 @@ class _DecoderCommon extends _CoderCommon {
     return this.#ignoreBOM;
   }
 
-  get replacementChar(): string {
-    return this.#replacementChar;
+  get replacementRune(): Rune {
+    return this.#replacementRune;
   }
 
-  decodeToRune(bytes: Array<Uint8>): string {
-    return this.#decodeToRune(bytes, this.fatal, this.replacementChar);
+  decodeToRune(bytes: _RuneEncodedBytes): Rune {
+    return this.#decodeToRune(bytes, this.fatal, this.replacementRune);
   }
 }
 
 type _EncoderCommonInit = {
   name: string;
   fatal: boolean;
-  replacementBytes: Array<Uint8>;
+  replacementBytes: _RuneEncodedBytes;
   encodeFromRune: (
-    rune: string,
+    rune: Rune,
     fatal: boolean,
-    replacementBytes: Array<Uint8>,
-  ) => Array<Uint8>;
+    replacementBytes: _RuneEncodedBytes,
+  ) => _RuneEncodedBytes;
   prependBOM: boolean;
 };
 
 class _EncoderCommon extends _CoderCommon {
   readonly #encodeFromRune: (
-    char: string,
+    rune: Rune,
     fatal: boolean,
-    replacementBytes: Array<Uint8>,
-  ) => Array<Uint8>;
+    replacementBytes: _RuneEncodedBytes,
+  ) => _RuneEncodedBytes;
   readonly #prependBOM: boolean;
-  readonly #replacementBytes: Array<Uint8>;
+  readonly #replacementBytes: _RuneEncodedBytes;
 
   constructor(init: _EncoderCommonInit) {
     super(init.name, init.fatal);
@@ -102,16 +104,16 @@ class _EncoderCommon extends _CoderCommon {
     return this.#prependBOM;
   }
 
-  get replacementBytes(): Array<Uint8> {
+  get replacementBytes(): _RuneEncodedBytes {
     return this.#replacementBytes;
   }
 
-  encodeFromRune(char: string): Array<Uint8> {
-    return this.#encodeFromRune(char, this.fatal, this.replacementBytes);
+  encodeFromRune(rune: Rune): _RuneEncodedBytes {
+    return this.#encodeFromRune(rune, this.fatal, this.replacementBytes);
   }
 }
 
-export abstract class DecoderBase implements TextDecoder {
+export abstract class Decoder implements TextDecoder {
   protected readonly _common: _DecoderCommon;
 
   protected constructor(init: _DecoderCommonInit) {
@@ -134,10 +136,10 @@ export abstract class DecoderBase implements TextDecoder {
 }
 
 //TODO
-// export abstract class DecoderStreamBase implements TextDecoderStream {
+// export abstract class DecoderStream implements TextDecoderStream {
 // }
 
-export abstract class EncoderBase /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
+export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
   protected readonly _common: _EncoderCommon;
 
   protected constructor(init: _EncoderCommonInit) {
@@ -168,7 +170,7 @@ type _EncoderStreamPending = {
   highSurrogate: string;
 };
 
-export abstract class EncoderStreamBase
+export abstract class EncoderStream
   implements
     TransformStream /* implements TextEncoderStream (encodingが"utf-8"ではない為) */ {
   protected readonly _common: _EncoderCommon;
@@ -181,7 +183,7 @@ export abstract class EncoderStreamBase
   protected constructor(init: _EncoderCommonInit) {
     this._common = new _EncoderCommon(init);
 
-    const self = (): EncoderStreamBase => this;
+    const self = (): EncoderStream => this;
     const transformer: Transformer<string, Uint8Array> = {
       transform(
         chunk: string,

@@ -1,77 +1,99 @@
-import { TextDecoderBase, TextEncoderBase } from "./main.ts";
-import { StringEx, Uint7 } from "../deps.ts";
+import * as TextEncoding from "./main.ts";
+import {
+  CodePoint,
+  Rune,
+  StringEx,
+  Uint7,
+  Uint8,
+  Uint8ArrayUtils,
+} from "../deps.ts";
 
 const _LABEL = "US-ASCII";
 
-function _decode(
-  input: BufferSource,
-  fatal: boolean,
-  replacementChar: string,
-): string {
-  let bytes: Uint8Array;
-  if (ArrayBuffer.isView(input)) {
-    bytes = new Uint8Array(input.buffer);
-  } else if (input instanceof ArrayBuffer) {
-    bytes = new Uint8Array(input);
+type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
+
+// function _isUsAsciiChar(test: string): boolean {
+//   // deno-lint-ignore no-control-regex
+//   return /^[\u{0}-\u{7F}]$/u.test(test);
+// }
+
+function _decodeToRune(
+  bytes: _UsAsciiCharBytes,
+  exceptionFallback: boolean,
+  replacementFallback: Rune,
+): Rune {
+  if (bytes.length === 1) {
+    const byte = bytes[0];
+    if (Uint7.isUint7(byte)) {
+      return String.fromCharCode(byte);
+    }
+  }
+
+  if (exceptionFallback === true) {
+    throw new TypeError(
+      `decode-error: [${
+        bytes.map((b) => `0x${b.toString(16).toUpperCase().padStart(2, "0")}`)
+          .join(",")
+      }]`, //TODO number-format
+    );
   } else {
-    throw new TypeError("input");
+    return replacementFallback;
   }
+}
 
-  const chars = Array.from(bytes, (byte) => {
-    if (Uint7.isUint7(byte) !== true) {
-      if (fatal === true) {
-        throw new TypeError("input[*]");
-      } else {
-        return replacementChar;
-      }
+function _encodeFromRune(
+  rune: Rune,
+  exceptionFallback: boolean,
+  replacementFallback: _UsAsciiCharBytes,
+): _UsAsciiCharBytes {
+  const codePoint = rune.codePointAt(0) as CodePoint;
+
+  if (Uint7.isUint7(codePoint) !== true) {
+    if (exceptionFallback === true) {
+      throw new TypeError(
+        `encode-error: ${rune} ${CodePoint.toString(codePoint)}`,
+      );
+    } else {
+      return replacementFallback;
     }
-    return String.fromCharCode(byte);
-  });
-  return chars.join("");
-}
-
-function _isUsAsciiChar(test: string): boolean {
-  // deno-lint-ignore no-control-regex
-  return /^[\u{0}-\u{7F}]$/u.test(test);
-}
-
-function _encode(
-  input: string,
-  fatal: boolean,
-  replacementChar: string,
-): Uint8Array {
-  if (StringEx.isString(input) !== true) {
-    throw new TypeError("input");
   }
 
-  const bytes = new Uint8Array(input.length);
-  let char: string;
-  for (let i = 0; i < input.length; i++) {
-    char = input.charAt(i);
+  return [codePoint];
+}
 
-    if (_isUsAsciiChar(char) !== true) {
-      if (fatal === true) {
-        throw new TypeError("input");
-      } else {
-        char = replacementChar;
-      }
+// U+FFFDはUS-ASCIIで表現できない
+const _DEFAULT_REPLACEMENT_CHAR = "?";
+const _DEFAULT_REPLACEMENT_BYTES: _UsAsciiCharBytes = [0x3F]; // "?"
+
+function _getReplacementRune(replacementRune: unknown): Rune {
+  if (StringEx.isString(replacementRune) && (replacementRune.length === 1)) {
+    try {
+      _encodeFromRune(
+        replacementRune,
+        true,
+        _DEFAULT_REPLACEMENT_BYTES,
+      );
+      return replacementRune;
+    } catch {
+      // _DEFAULT_REPLACEMENT_BYTES を返す
     }
-
-    bytes[i] = char.charCodeAt(0);
   }
-  return bytes;
+  return _DEFAULT_REPLACEMENT_CHAR;
 }
 
-const _defaultReplacementChar = "?";
-
-function _replacementChar(replacementChar?: string): string {
-  if (StringEx.isNonEmptyString(replacementChar) !== true) {
-    return _defaultReplacementChar;
+function _getReplacementBytes(replacementRune: unknown): _UsAsciiCharBytes {
+  if (StringEx.isString(replacementRune) && (replacementRune.length === 1)) {
+    try {
+      return _encodeFromRune(
+        replacementRune,
+        true,
+        _DEFAULT_REPLACEMENT_BYTES,
+      );
+    } catch {
+      // _DEFAULT_REPLACEMENT_BYTES を返す
+    }
   }
-  if (_isUsAsciiChar(replacementChar as string) !== true) {
-    return _defaultReplacementChar;
-  }
-  return replacementChar as string;
+  return _DEFAULT_REPLACEMENT_BYTES;
 }
 
 export namespace UsAscii {
@@ -80,12 +102,14 @@ export namespace UsAscii {
     replacementChar?: string;
   };
 
-  export class Decoder extends TextDecoderBase {
+  export class Decoder extends TextEncoding.Decoder {
     constructor(options: DecoderOptions = {}) {
-      super(_LABEL, {
+      super({
+        name: _LABEL,
         fatal: options?.fatal === true,
+        replacementRune: _getReplacementRune(options?.replacementChar),
+        decodeToRune: _decodeToRune,
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
-        replacementChar: _replacementChar(options?.replacementChar),
       });
     }
 
@@ -95,7 +119,20 @@ export namespace UsAscii {
     ): string {
       void options; // 必ず1バイトなので無視
 
-      return _decode(input, this.fatal, this._replacementChar);
+      let bytes: Uint8Array;
+      if (ArrayBuffer.isView(input)) {
+        bytes = new Uint8Array(input.buffer);
+      } else if (input instanceof ArrayBuffer) {
+        bytes = new Uint8Array(input);
+      } else {
+        throw new TypeError("input");
+      }
+
+      const runes = Array.from(bytes, (byte) => {
+        return this._common.decodeToRune([byte as Uint8]);
+      });
+
+      return runes.join("");
     }
   }
 
@@ -104,17 +141,27 @@ export namespace UsAscii {
     replacementChar?: string;
   };
 
-  export class Encoder extends TextEncoderBase {
+  export class Encoder extends TextEncoding.Encoder {
     constructor(options: EncoderOptions = {}) {
-      super(_LABEL, {
+      super({
+        name: _LABEL,
         fatal: options?.fatal === true,
+        replacementBytes: _getReplacementBytes(options?.replacementChar),
+        encodeFromRune: _encodeFromRune,
         prependBOM: false,
-        replacementChar: _replacementChar(options?.replacementChar),
       });
     }
 
     override encode(input = ""): Uint8Array {
-      return _encode(input, this.fatal, this._replacementChar);
+      if (StringEx.isString(input) !== true) {
+        throw new TypeError("input");
+      }
+
+      const bytes = [];
+      for (const rune of input) {
+        bytes.push(this._common.encodeFromRune(rune));
+      }
+      return Uint8ArrayUtils.fromUint8s(bytes.flat());
     }
 
     override encodeInto(
