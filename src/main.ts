@@ -220,6 +220,11 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     return this.#common.prependBOM;
   }
 
+  //XXX throws TypeError: strict:true、かつ、入力がstring型ではないとき
+  //XXX throws TypeError: fatal:true、かつ、入力に符号化方式で符号化できない文字が含まれるとき
+  /**
+   * @see [TextEncoder.encode](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encode)
+   */
   encode(input?: string): Uint8Array {
     if (this.#common.strict === true) {
       if (StringEx.isString(input) !== true) {
@@ -252,6 +257,11 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     return new Uint8Array(buffer.slice(0, written));
   }
 
+  //XXX throws TypeError: strict:true、かつ、入力がstring型ではないとき
+  //XXX throws TypeError: fatal:true、かつ、入力に符号化方式で符号化できない文字が含まれるとき
+  /**
+   * @see [TextEncoder.encodeInto](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encodeInto)
+   */
   encodeInto(
     source: string,
     destination: Uint8Array,
@@ -347,6 +357,14 @@ export abstract class EncoderStream
   //   return "";
   // }
 
+  /**
+   * チャンクを符号化
+   *
+   * https://encoding.spec.whatwg.org/#interface-textencoderstream のとおりの処理ではないが、結果は同じはず
+   *
+   * @param chunk - 文字列
+   * @returns chunkを符号化したバイト列
+   */
   protected _encodeChunk(chunk: string): Uint8Array {
     if (this.#common.strict === true) {
       if (StringEx.isString(chunk) !== true) {
