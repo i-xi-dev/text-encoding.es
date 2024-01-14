@@ -1,4 +1,11 @@
-import { _TransformStream, Rune, Uint8 } from "../deps.ts";
+import {
+  _TransformStream,
+  Rune,
+  SafeInteger,
+  StringEx,
+  Uint8,
+  Uint8ArrayUtils,
+} from "../deps.ts";
 
 export const BOM = "\u{FEFF}";
 
@@ -41,6 +48,8 @@ type _DecoderCommonInit = {
     replacementRune: Rune,
   ) => Rune;
   ignoreBOM: boolean;
+  strict: boolean;
+  maxBytesPerRune: SafeInteger;
 };
 
 class _DecoderCommon extends _CoderCommon {
@@ -51,12 +60,16 @@ class _DecoderCommon extends _CoderCommon {
   ) => Rune;
   readonly #ignoreBOM: boolean;
   readonly #replacementRune: Rune;
+  readonly #strict: boolean;
+  readonly #maxBytesPerRune: SafeInteger;
 
   constructor(init: _DecoderCommonInit) {
     super(init.name, init.fatal);
     this.#replacementRune = init.replacementRune;
     this.#decodeToRune = init.decodeToRune;
     this.#ignoreBOM = init.ignoreBOM;
+    this.#strict = init.strict;
+    this.#maxBytesPerRune = init.maxBytesPerRune;
   }
 
   get ignoreBOM(): boolean {
@@ -65,6 +78,14 @@ class _DecoderCommon extends _CoderCommon {
 
   get replacementRune(): Rune {
     return this.#replacementRune;
+  }
+
+  get strict(): boolean {
+    return this.#strict;
+  }
+
+  get maxBytesPerRune(): SafeInteger {
+    return this.#maxBytesPerRune;
   }
 
   decodeToRune(bytes: _RuneEncodedBytes): Rune {
@@ -82,6 +103,8 @@ type _EncoderCommonInit = {
     replacementBytes: _RuneEncodedBytes,
   ) => _RuneEncodedBytes;
   prependBOM: boolean;
+  strict: boolean;
+  maxBytesPerRune: SafeInteger;
 };
 
 class _EncoderCommon extends _CoderCommon {
@@ -92,12 +115,16 @@ class _EncoderCommon extends _CoderCommon {
   ) => _RuneEncodedBytes;
   readonly #prependBOM: boolean;
   readonly #replacementBytes: _RuneEncodedBytes;
+  readonly #strict: boolean;
+  readonly #maxBytesPerRune: SafeInteger;
 
   constructor(init: _EncoderCommonInit) {
     super(init.name, init.fatal);
     this.#replacementBytes = init.replacementBytes;
     this.#encodeFromRune = init.encodeFromRune;
     this.#prependBOM = init.prependBOM;
+    this.#strict = init.strict;
+    this.#maxBytesPerRune = init.maxBytesPerRune;
   }
 
   get prependBOM(): boolean {
@@ -106,6 +133,14 @@ class _EncoderCommon extends _CoderCommon {
 
   get replacementBytes(): _RuneEncodedBytes {
     return this.#replacementBytes;
+  }
+
+  get strict(): boolean {
+    return this.#strict;
+  }
+
+  get maxBytesPerRune(): SafeInteger {
+    return this.#maxBytesPerRune;
   }
 
   encodeFromRune(rune: Rune): _RuneEncodedBytes {
@@ -158,12 +193,59 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     return this._common.prependBOM;
   }
 
-  abstract encode(input?: string): Uint8Array;
+  encode(input?: string): Uint8Array {
+    if (this._common.strict === true) {
+      if (StringEx.isString(input) !== true) {
+        throw new TypeError("input");
+      }
+    }
+    const runesAsString = (input === undefined) ? "" : String(input); // TextEncoderにあわせた(つもり)
 
-  abstract encodeInto(
+    const maxByteCount = runesAsString.length * this._common.maxBytesPerRune;
+    const tmp = new Array<Uint8>(maxByteCount);
+    let written = 0;
+
+    for (const rune of runesAsString) {
+      const runeBytes = this._common.encodeFromRune(rune);
+      for (let i = 0; i < runeBytes.length; i++) {
+        tmp[written] = runeBytes[0];
+        written++;
+      }
+    }
+
+    return Uint8ArrayUtils.fromUint8s(tmp.slice(0, written));
+  }
+
+  encodeInto(
     source: string,
     destination: Uint8Array,
-  ): TextEncoderEncodeIntoResult;
+  ): TextEncoderEncodeIntoResult {
+    if (this._common.strict === true) {
+      if (StringEx.isString(source) !== true) {
+        throw new TypeError("source");
+      }
+    }
+    const runesAsString = (source === undefined) ? "" : String(source); // TextEncoderにあわせた(つもり)
+
+    let read = 0;
+    let written = 0;
+    for (const rune of runesAsString) {
+      const runeBytes = this._common.encodeFromRune(rune);
+
+      if ((written + runeBytes.length) > destination.length) {
+        break;
+      }
+
+      read = read + rune.length;
+      destination.set(runeBytes, written);
+      written = written + runeBytes.length;
+    }
+
+    return {
+      read,
+      written,
+    };
+  }
 }
 
 type _EncoderStreamPending = {

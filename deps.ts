@@ -4,6 +4,7 @@ export {
   StringEx,
 } from "https://raw.githubusercontent.com/i-xi-dev/string.es/6.0.1/mod.ts";
 export {
+  SafeInteger,
   Uint16,
   Uint32,
   Uint7,

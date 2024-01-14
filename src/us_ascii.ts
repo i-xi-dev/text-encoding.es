@@ -1,14 +1,9 @@
 import * as TextEncoding from "./main.ts";
-import {
-  CodePoint,
-  Rune,
-  StringEx,
-  Uint7,
-  Uint8,
-  Uint8ArrayUtils,
-} from "../deps.ts";
+import { CodePoint, Rune, StringEx, Uint7, Uint8 } from "../deps.ts";
 
 const _LABEL = "US-ASCII";
+
+const _MAX_BYTES_PER_RUNE = 2;
 
 type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
 
@@ -100,6 +95,7 @@ export namespace UsAscii {
   type DecoderOptions = {
     fatal?: boolean;
     replacementChar?: string;
+    strict?: boolean;
   };
 
   export class Decoder extends TextEncoding.Decoder {
@@ -110,6 +106,8 @@ export namespace UsAscii {
         replacementRune: _getReplacementRune(options?.replacementChar),
         decodeToRune: _decodeToRune,
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
+        strict: options?.strict === true,
+        maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
     }
 
@@ -139,6 +137,7 @@ export namespace UsAscii {
   export type EncoderOptions = {
     fatal?: boolean;
     replacementChar?: string;
+    strict?: boolean;
   };
 
   export class Encoder extends TextEncoding.Encoder {
@@ -149,27 +148,9 @@ export namespace UsAscii {
         replacementBytes: _getReplacementBytes(options?.replacementChar),
         encodeFromRune: _encodeFromRune,
         prependBOM: false,
+        strict: options?.strict === true,
+        maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
-    }
-
-    override encode(input = ""): Uint8Array {
-      if (StringEx.isString(input) !== true) {
-        throw new TypeError("input");
-      }
-
-      const bytes = [];
-      for (const rune of input) {
-        bytes.push(this._common.encodeFromRune(rune));
-      }
-      return Uint8ArrayUtils.fromUint8s(bytes.flat());
-    }
-
-    override encodeInto(
-      source: string,
-      destination: Uint8Array,
-    ): TextEncoderEncodeIntoResult {
-      //TODO
-      throw new Error("not implemented.");
     }
   }
 }
