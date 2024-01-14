@@ -220,10 +220,20 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
         throw new TypeError("input");
       }
     }
-    const runesAsString = (input === undefined) ? "" : String(input); // TextEncoderにあわせた(つもり)
+
+    let runesAsString = (input === undefined) ? "" : String(input); // TextEncoderにあわせた(つもり)
+    let bomPrepended = false;
+    if (
+      (this._common.prependBOM === true) &&
+      (runesAsString.startsWith(BOM) !== true)
+    ) {
+      runesAsString = BOM + runesAsString;
+      bomPrepended = true;
+    }
 
     const buffer = new ArrayBuffer(
-      runesAsString.length * this._common.maxBytesPerRune,
+      runesAsString.length * this._common.maxBytesPerRune +
+        (bomPrepended ? this._common.maxBytesPerRune : 0),
     );
 
     const { read, written } = this._common.encode(runesAsString, buffer, 0);
@@ -241,7 +251,13 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
         throw new TypeError("source");
       }
     }
-    const runesAsString = (source === undefined) ? "" : String(source); // TextEncoderにあわせた(つもり)
+    let runesAsString = (source === undefined) ? "" : String(source); // TextEncoderにあわせた(つもり)
+    if (
+      (this._common.prependBOM === true) &&
+      (runesAsString.startsWith(BOM) !== true)
+    ) {
+      runesAsString = BOM + runesAsString;
+    }
 
     const { read, written } = this._common.encode(
       runesAsString,
