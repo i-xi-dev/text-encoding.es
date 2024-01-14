@@ -58,8 +58,12 @@ function _encode(
   let written = 0;
 
   for (const rune of srcString) {
-    read = read + rune.length;
     const codePoint = rune.codePointAt(0) as CodePoint;
+
+    if ((written + 1) > dstView.length) {
+      break;
+    }
+    read = read + rune.length;
 
     if (Uint7.isUint7(codePoint)) {
       dstView[dstOffset + written] = codePoint;
