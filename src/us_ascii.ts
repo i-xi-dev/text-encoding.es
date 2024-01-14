@@ -178,4 +178,18 @@ export namespace UsAscii {
       });
     }
   }
+
+  export class EncoderStream extends TextEncoding.EncoderStream {
+    constructor(options: EncoderOptions = {}) {
+      super({
+        name: _LABEL,
+        fatal: options?.fatal === true,
+        replacementBytes: _getReplacement(options?.replacementChar).bytes,
+        encode: _encode,
+        prependBOM: false,
+        strict: options?.strict === true,
+        maxBytesPerRune: _MAX_BYTES_PER_RUNE,
+      });
+    }
+  }
 }

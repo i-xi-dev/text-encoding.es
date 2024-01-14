@@ -1,4 +1,10 @@
-import { _TransformStream, SafeInteger, StringEx, Uint8 } from "../deps.ts";
+import {
+  _TransformStream,
+  CodePoint,
+  SafeInteger,
+  StringEx,
+  Uint8,
+} from "../deps.ts";
 
 export const BOM = "\u{FEFF}";
 
@@ -155,27 +161,27 @@ class _EncoderCommon extends _CoderCommon {
 }
 
 // export abstract class Decoder implements TextDecoder {
-//   protected readonly _common: _DecoderCommon;
+//    readonly #common: _DecoderCommon;
 
 //   protected constructor(init: _DecoderCommonInit) {
-//     this._common = new _DecoderCommon(init);
+//     this.#common = new _DecoderCommon(init);
 //   }
 
 //   get encoding(): string {
-//     return this._common.encoding;
+//     return this.#common.encoding;
 //   }
 
 //   get fatal(): boolean {
-//     return this._common.fatal;
+//     return this.#common.fatal;
 //   }
 
 //   get ignoreBOM(): boolean {
-//     return this._common.ignoreBOM;
+//     return this.#common.ignoreBOM;
 //   }
 
 //   decode(input?: BufferSource, options?: TextDecodeOptions): string {
 //     let buffer: ArrayBuffer | undefined;
-//     if (this._common.strict === true) {
+//     if (this.#common.strict === true) {
 //       if (input === undefined) {
 //         buffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
 //       }
@@ -196,26 +202,26 @@ class _EncoderCommon extends _CoderCommon {
 // }
 
 export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
-  protected readonly _common: _EncoderCommon;
+  readonly #common: _EncoderCommon;
 
   protected constructor(init: _EncoderCommonInit) {
-    this._common = new _EncoderCommon(init);
+    this.#common = new _EncoderCommon(init);
   }
 
   get encoding(): string {
-    return this._common.encoding as string;
+    return this.#common.encoding as string;
   }
 
   get fatal(): boolean {
-    return this._common.fatal;
+    return this.#common.fatal;
   }
 
   get prependBOM(): boolean {
-    return this._common.prependBOM;
+    return this.#common.prependBOM;
   }
 
   encode(input?: string): Uint8Array {
-    if (this._common.strict === true) {
+    if (this.#common.strict === true) {
       if (StringEx.isString(input) !== true) {
         throw new TypeError("input");
       }
@@ -224,7 +230,7 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     let runesAsString = (input === undefined) ? "" : String(input); // TextEncoderにあわせた(つもり)
     let bomPrepended = false;
     if (
-      (this._common.prependBOM === true) &&
+      (this.#common.prependBOM === true) &&
       (runesAsString.startsWith(BOM) !== true)
     ) {
       runesAsString = BOM + runesAsString;
@@ -232,12 +238,16 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     }
 
     const buffer = new ArrayBuffer(
-      runesAsString.length * this._common.maxBytesPerRune +
-        (bomPrepended ? this._common.maxBytesPerRune : 0),
+      runesAsString.length * this.#common.maxBytesPerRune +
+        (bomPrepended ? this.#common.maxBytesPerRune : 0),
     );
 
-    const { read, written } = this._common.encode(runesAsString, buffer, 0);
-    console.assert(runesAsString.length === read);
+    const { /* read,*/ written } = this.#common.encode(
+      runesAsString,
+      buffer,
+      0,
+    );
+    // console.assert(runesAsString.length === read);
 
     return new Uint8Array(buffer.slice(0, written));
   }
@@ -246,20 +256,20 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     source: string,
     destination: Uint8Array,
   ): TextEncoderEncodeIntoResult {
-    if (this._common.strict === true) {
+    if (this.#common.strict === true) {
       if (StringEx.isString(source) !== true) {
         throw new TypeError("source");
       }
     }
     let runesAsString = (source === undefined) ? "" : String(source); // TextEncoderにあわせた(つもり)
     if (
-      (this._common.prependBOM === true) &&
+      (this.#common.prependBOM === true) &&
       (runesAsString.startsWith(BOM) !== true)
     ) {
       runesAsString = BOM + runesAsString;
     }
 
-    const { read, written } = this._common.encode(
+    const { read, written } = this.#common.encode(
       runesAsString,
       destination.buffer,
       0,
@@ -278,15 +288,16 @@ type _EncoderStreamPending = {
 export abstract class EncoderStream
   implements
     TransformStream /* implements TextEncoderStream (encodingが"utf-8"ではない為) */ {
-  protected readonly _common: _EncoderCommon;
+  readonly #common: _EncoderCommon;
 
-  protected readonly _pending: _EncoderStreamPending;
+  readonly #pending: _EncoderStreamPending;
 
-  /* readonly */
-  #stream: TransformStream<string, Uint8Array>;
+  readonly #stream: TransformStream<string, Uint8Array>;
+
+  #firstChunkLoaded = false;
 
   protected constructor(init: _EncoderCommonInit) {
-    this._common = new _EncoderCommon(init);
+    this.#common = new _EncoderCommon(init);
 
     const self = (): EncoderStream => this;
     const transformer: Transformer<string, Uint8Array> = {
@@ -298,30 +309,30 @@ export abstract class EncoderStream
         controller.enqueue(encoded);
       },
       flush(controller: TransformStreamDefaultController<Uint8Array>): void {
-        if (self()._pending.highSurrogate.length > 0) {
+        if (self().#pending.highSurrogate.length > 0) {
           controller.enqueue(
-            Uint8Array.from(self()._common.replacementBytes),
+            Uint8Array.from(self().#common.replacementBytes),
           );
         }
       },
     };
-    // $011 super(transformer);
-    this._pending = Object.seal({
+
+    this.#pending = Object.seal({
       highSurrogate: "",
     });
     this.#stream = new _TransformStream<string, Uint8Array>(transformer); // $011
   }
 
   get encoding(): string {
-    return this._common.encoding;
+    return this.#common.encoding;
   }
 
   get fatal(): boolean {
-    return this._common.fatal;
+    return this.#common.fatal;
   }
 
   get prependBOM(): boolean {
-    return this._common.prependBOM;
+    return this.#common.prependBOM;
   }
 
   get readable(): ReadableStream {
@@ -336,5 +347,46 @@ export abstract class EncoderStream
   //   return "";
   // }
 
-  protected abstract _encodeChunk(chunk: string): Uint8Array;
+  protected _encodeChunk(chunk: string): Uint8Array {
+    if (this.#common.strict === true) {
+      if (StringEx.isString(chunk) !== true) {
+        throw new TypeError("chunk");
+      }
+    }
+
+    let runesAsString = (chunk === undefined) ? "" : String(chunk);
+    runesAsString = this.#pending.highSurrogate + runesAsString;
+    this.#pending.highSurrogate = "";
+
+    const lastChar = runesAsString.slice(-1);
+    if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
+      this.#pending.highSurrogate = lastChar;
+      runesAsString = runesAsString.slice(0, -1);
+    }
+
+    let bomPrepended = false;
+    if (this.#firstChunkLoaded !== true) {
+      this.#firstChunkLoaded = true;
+      if (
+        (this.#common.prependBOM === true) &&
+        (runesAsString.startsWith(BOM) !== true)
+      ) {
+        runesAsString = BOM + runesAsString;
+        bomPrepended = true;
+      }
+    }
+
+    const buffer = new ArrayBuffer(
+      runesAsString.length * this.#common.maxBytesPerRune +
+        (bomPrepended ? this.#common.maxBytesPerRune : 0),
+    );
+
+    const { /* read,*/ written } = this.#common.encode(
+      runesAsString,
+      buffer,
+      0,
+    );
+
+    return new Uint8Array(buffer.slice(0, written));
+  }
 }
