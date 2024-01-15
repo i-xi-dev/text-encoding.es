@@ -36,6 +36,11 @@ class _CoderCommon {
   }
 }
 
+type _DecoderDecodeIntoResult = {
+  read: SafeInteger;
+  written: SafeInteger;
+};
+
 type _DecoderCommonInit = {
   name: string;
   fatal: boolean;
@@ -46,53 +51,64 @@ type _DecoderCommonInit = {
     dstString: string,
     options: {
       fatal: boolean;
-      replacementRune: Rune; //XXX runeといいつつU+10000以上には対応しない
+      replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
     },
-  ) => { read: SafeInteger; written: SafeInteger };
+  ) => _DecoderDecodeIntoResult;
   ignoreBOM: boolean;
   strict: boolean;
   maxBytesPerRune: SafeInteger;
 };
 
 class _DecoderCommon extends _CoderCommon {
-//   readonly #decodeToRune: (
-//     bytes: _RuneSequenceEncodedBytes,
-//     fatal: boolean,
-//     replacementRune: Rune,
-//   ) => Rune;
-//   readonly #ignoreBOM: boolean;
-//   readonly #replacementRune: Rune;
-//   readonly #strict: boolean;
-//   readonly #maxBytesPerRune: SafeInteger;
+  readonly #decode: (
+    srcBuffer: ArrayBuffer,
+    srcOffset: SafeInteger,
+    dstString: string,
+    options: {
+      fatal: boolean;
+      replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
+    },
+  ) => _DecoderDecodeIntoResult;
+  readonly #ignoreBOM: boolean;
+  readonly #replacementRune: Rune;
+  readonly #strict: boolean;
+  readonly #maxBytesPerRune: SafeInteger;
 
-//   constructor(init: _DecoderCommonInit) {
-//     super(init.name, init.fatal);
-//     this.#replacementRune = init.replacementRune;
-//     this.#decodeToRune = init.decodeToRune;
-//     this.#ignoreBOM = init.ignoreBOM;
-//     this.#strict = init.strict;
-//     this.#maxBytesPerRune = init.maxBytesPerRune;
-//   }
+  constructor(init: _DecoderCommonInit) {
+    super(init.name, init.fatal);
+    this.#replacementRune = init.replacementRune;
+    this.#decode = init.decode;
+    this.#ignoreBOM = init.ignoreBOM;
+    this.#strict = init.strict;
+    this.#maxBytesPerRune = init.maxBytesPerRune;
+  }
 
-//   get ignoreBOM(): boolean {
-//     return this.#ignoreBOM;
-//   }
+  get ignoreBOM(): boolean {
+    return this.#ignoreBOM;
+  }
 
-//   get replacementRune(): Rune {
-//     return this.#replacementRune;
-//   }
+  get replacementRune(): Rune {
+    return this.#replacementRune;
+  }
 
-//   get strict(): boolean {
-//     return this.#strict;
-//   }
+  get strict(): boolean {
+    return this.#strict;
+  }
 
-//   get maxBytesPerRune(): SafeInteger {
-//     return this.#maxBytesPerRune;
-//   }
+  get maxBytesPerRune(): SafeInteger {
+    return this.#maxBytesPerRune;
+  }
 
-//   decodeToRune(bytes: Array<Uint8>): Rune {
-//     return this.#decodeToRune(bytes, this.fatal, this.replacementRune);
-//   }
+  decode(
+    srcBuffer: ArrayBuffer,
+    srcOffset: SafeInteger,
+    dstString: string,
+  ): _DecoderDecodeIntoResult {
+    return this.#decode(srcBuffer, srcOffset, dstString, {
+      fatal: this.fatal,
+      replacementRune: this.replacementRune,
+    });
+  }
 }
 
 type _EncoderCommonInit = {
