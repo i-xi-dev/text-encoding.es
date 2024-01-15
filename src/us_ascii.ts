@@ -39,7 +39,7 @@ function _decode(
     // if ((written + 1) > xxx) {
     //   break;
     // }
-    read = read + 1;
+    read = read + Uint8.BYTES;
 
     if (Uint7.isUint7(byte)) {
       dstRunes.push(String.fromCharCode(byte));
