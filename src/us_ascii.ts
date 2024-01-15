@@ -19,34 +19,52 @@ type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
 //   return /^[\u{0}-\u{7F}]$/u.test(test);
 // }
 
-// function _decodeToRune(
-//   bytes: _UsAsciiCharBytes,
-//   exceptionFallback: boolean,
-//   replacementFallback: Rune,
-// ): Rune {
-//   if (bytes.length === 1) {
-//     const byte = bytes[0];
-//     if (Uint7.isUint7(byte)) {
-//       return String.fromCharCode(byte);
-//     }
-//   }
+function _decode(
+  srcBuffer: ArrayBuffer,
+  dstRunes: Array<Rune>,
+  options: {
+    fatal: boolean;
+    replacementRune: Rune;
+  },
+): {
+  read: SafeInteger;
+  written: SafeInteger;
+} {
+  const srcView = new Uint8Array(srcBuffer);
 
-//   if (exceptionFallback === true) {
-//     throw new TypeError(
-//       `decode-error: [${
-//         bytes.map((b) => `0x${b.toString(16).toUpperCase().padStart(2, "0")}`)
-//           .join(",")
-//       }]`, //TODO number-format
-//     );
-//   } else {
-//     return replacementFallback;
-//   }
-// }
+  let read = 0;
+  let written = 0;
+
+  for (const byte of srcView) {
+    // if ((written + 1) > xxx) {
+    //   break;
+    // }
+    read = read + 1;
+
+    if (Uint7.isUint7(byte)) {
+      dstRunes.push(String.fromCharCode(byte));
+      written = written + 1;
+    } else {
+      if (options.fatal === true) {
+        throw new TypeError(
+          `decode-error: 0x${byte.toString(16).toUpperCase().padStart(2, "0")}`, //TODO number-format
+        );
+      } else {
+        dstRunes.push(options.replacementRune);
+        written = written + 1;
+      }
+    }
+  }
+
+  return {
+    read,
+    written,
+  };
+}
 
 function _encode(
-  srcString: string,
+  srcRunesAsString: string,
   dstBuffer: ArrayBuffer,
-  dstOffset: SafeInteger,
   options: {
     fatal: boolean;
     replacementBytes: Array<Uint8>;
@@ -57,7 +75,7 @@ function _encode(
   let read = 0;
   let written = 0;
 
-  for (const rune of srcString) {
+  for (const rune of srcRunesAsString) {
     const codePoint = rune.codePointAt(0) as CodePoint;
 
     if ((written + 1) > dstView.length) {
@@ -66,7 +84,7 @@ function _encode(
     read = read + rune.length;
 
     if (Uint7.isUint7(codePoint)) {
-      dstView[dstOffset + written] = codePoint;
+      dstView[written] = codePoint;
       written = written + 1;
     } else {
       if (options.fatal === true) {
@@ -74,7 +92,7 @@ function _encode(
           `encode-error: ${rune} ${CodePoint.toString(codePoint)}`,
         );
       } else {
-        dstView[dstOffset + written] = options.replacementBytes[0];
+        dstView[written] = options.replacementBytes[0];
         written = written + 1;
       }
     }
@@ -99,7 +117,6 @@ function _getReplacement(
       _encode(
         replacementRune,
         tmp,
-        0,
         { fatal: true, replacementBytes: _DEFAULT_REPLACEMENT_BYTES },
       );
       return {

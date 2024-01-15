@@ -6,6 +6,7 @@ import {
   StringEx,
   Uint8,
 } from "../deps.ts";
+import { TextEncoding } from "../mod.ts";
 
 export const BOM = "\u{FEFF}";
 
@@ -47,8 +48,7 @@ type _DecoderCommonInit = {
   replacementRune: Rune;
   decode: (
     srcBuffer: ArrayBuffer,
-    srcOffset: SafeInteger,
-    dstString: string,
+    dstRunes: Array<Rune>,
     options: {
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
@@ -62,8 +62,7 @@ type _DecoderCommonInit = {
 class _DecoderCommon extends _CoderCommon {
   readonly #decode: (
     srcBuffer: ArrayBuffer,
-    srcOffset: SafeInteger,
-    dstString: string,
+    dstRunes: Array<Rune>,
     options: {
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
@@ -101,10 +100,9 @@ class _DecoderCommon extends _CoderCommon {
 
   decode(
     srcBuffer: ArrayBuffer,
-    srcOffset: SafeInteger,
-    dstString: string,
+    dstRunes: Array<Rune>,
   ): _DecoderDecodeIntoResult {
-    return this.#decode(srcBuffer, srcOffset, dstString, {
+    return this.#decode(srcBuffer, dstRunes, {
       fatal: this.fatal,
       replacementRune: this.replacementRune,
     });
@@ -116,9 +114,8 @@ type _EncoderCommonInit = {
   fatal: boolean;
   replacementBytes: Array<Uint8>;
   encode: (
-    srcString: string,
+    srcRunesAsString: string,
     dstBuffer: ArrayBuffer,
-    dstOffset: SafeInteger,
     options: {
       fatal: boolean;
       replacementBytes: Array<Uint8>;
@@ -131,9 +128,8 @@ type _EncoderCommonInit = {
 
 class _EncoderCommon extends _CoderCommon {
   readonly #encode: (
-    srcString: string,
+    srcRunesAsString: string,
     dstBuffer: ArrayBuffer,
-    dstOffset: SafeInteger,
     options: {
       fatal: boolean;
       replacementBytes: Array<Uint8>;
@@ -170,53 +166,60 @@ class _EncoderCommon extends _CoderCommon {
   }
 
   encode(
-    srcString: string,
+    srcRunesAsString: string,
     dstBuffer: ArrayBuffer,
-    dstOffset: SafeInteger,
   ): TextEncoderEncodeIntoResult {
-    return this.#encode(srcString, dstBuffer, dstOffset, {
+    return this.#encode(srcRunesAsString, dstBuffer, {
       fatal: this.fatal,
       replacementBytes: this.replacementBytes,
     });
   }
 }
 
-// export abstract class Decoder implements TextDecoder {
-//    readonly #common: _DecoderCommon;
+export abstract class Decoder implements TextDecoder {
+  readonly #common: _DecoderCommon;
 
-//   protected constructor(init: _DecoderCommonInit) {
-//     this.#common = new _DecoderCommon(init);
-//   }
+  protected constructor(init: _DecoderCommonInit) {
+    this.#common = new _DecoderCommon(init);
+  }
 
-//   get encoding(): string {
-//     return this.#common.encoding;
-//   }
+  get encoding(): string {
+    return this.#common.encoding;
+  }
 
-//   get fatal(): boolean {
-//     return this.#common.fatal;
-//   }
+  get fatal(): boolean {
+    return this.#common.fatal;
+  }
 
-//   get ignoreBOM(): boolean {
-//     return this.#common.ignoreBOM;
-//   }
+  get ignoreBOM(): boolean {
+    return this.#common.ignoreBOM;
+  }
 
-//   decode(input?: BufferSource, options?: TextDecodeOptions): string {
-//     let buffer: ArrayBuffer | undefined;
-//     if (this.#common.strict === true) {
-//       if (input === undefined) {
-//         buffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
-//       }
-//     }
-//     if (ArrayBuffer.isView(input)) {
-//       buffer = input.buffer;
-//     } else if (input instanceof ArrayBuffer) {
-//       buffer = input;
-//     }
-//     if (!buffer) {
-//       throw new TypeError("input");
-//     }
-//   }
-// }
+  //TODO options
+  decode(input?: BufferSource, options?: TextDecodeOptions): string {
+    let buffer: ArrayBuffer | undefined;
+    if (input === undefined) {
+      buffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
+    } else if (ArrayBuffer.isView(input)) {
+      buffer = input.buffer;
+    } else if (input instanceof ArrayBuffer) {
+      buffer = input;
+    }
+    if (!buffer) { // options.strictは無視する
+      throw new TypeError("input");
+    }
+
+    const runes: Array<Rune> = [];
+    // const { read, written } =
+    this.#common.decode(buffer, runes);
+    // console.assert(buffer.byteLength === read);
+
+    if (runes[0] === TextEncoding.BOM) {
+      return runes.slice(1).join("");
+    }
+    return runes.join("");
+  }
+}
 
 //TODO
 // export abstract class DecoderStream implements TextDecoderStream {
@@ -268,11 +271,7 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
         (bomPrepended ? this.#common.maxBytesPerRune : 0),
     );
 
-    const { /* read,*/ written } = this.#common.encode(
-      runesAsString,
-      buffer,
-      0,
-    );
+    const { /* read,*/ written } = this.#common.encode(runesAsString, buffer);
     // console.assert(runesAsString.length === read);
 
     return new Uint8Array(buffer.slice(0, written));
@@ -303,7 +302,6 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     const { read, written } = this.#common.encode(
       runesAsString,
       destination.buffer,
-      0,
     );
     return {
       read,
@@ -420,11 +418,7 @@ export abstract class EncoderStream
         (bomPrepended ? this.#common.maxBytesPerRune : 0),
     );
 
-    const { /* read,*/ written } = this.#common.encode(
-      runesAsString,
-      buffer,
-      0,
-    );
+    const { /* read,*/ written } = this.#common.encode(runesAsString, buffer);
 
     return new Uint8Array(buffer.slice(0, written));
   }
