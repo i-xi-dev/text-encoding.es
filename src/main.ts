@@ -1,6 +1,7 @@
 import {
   _TransformStream,
   CodePoint,
+  Rune,
   SafeInteger,
   StringEx,
   Uint8,
@@ -35,21 +36,25 @@ class _CoderCommon {
   }
 }
 
-// type _DecoderCommonInit = {
-//   name: string;
-//   fatal: boolean;
-//   replacementRune: Rune;
-//   decodeToRune: (
-//     bytes: _RuneSequenceEncodedBytes,offset
-//     fatal: boolean,
-//     replacementRune: Rune,
-//   ) => { rune: Rune; progression: SafeInteger };
-//   ignoreBOM: boolean;
-//   strict: boolean;
-//   maxBytesPerRune: SafeInteger;
-// };
+type _DecoderCommonInit = {
+  name: string;
+  fatal: boolean;
+  replacementRune: Rune;
+  decode: (
+    srcBuffer: ArrayBuffer,
+    srcOffset: SafeInteger,
+    dstString: string,
+    options: {
+      fatal: boolean;
+      replacementRune: Rune; //XXX runeといいつつU+10000以上には対応しない
+    },
+  ) => { read: SafeInteger; written: SafeInteger };
+  ignoreBOM: boolean;
+  strict: boolean;
+  maxBytesPerRune: SafeInteger;
+};
 
-// class _DecoderCommon extends _CoderCommon {
+class _DecoderCommon extends _CoderCommon {
 //   readonly #decodeToRune: (
 //     bytes: _RuneSequenceEncodedBytes,
 //     fatal: boolean,
@@ -88,7 +93,7 @@ class _CoderCommon {
 //   decodeToRune(bytes: Array<Uint8>): Rune {
 //     return this.#decodeToRune(bytes, this.fatal, this.replacementRune);
 //   }
-// }
+}
 
 type _EncoderCommonInit = {
   name: string;
