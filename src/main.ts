@@ -214,8 +214,10 @@ export abstract class Decoder implements TextDecoder {
     this.#common.decode(buffer, runes);
     // console.assert(buffer.byteLength === read);
 
-    if (runes[0] === TextEncoding.BOM) {
-      return runes.slice(1).join("");
+    if (this.#common.ignoreBOM !== true) {
+      if (runes[0] === TextEncoding.BOM) {
+        return runes.slice(1).join("");
+      }
     }
     return runes.join("");
   }
