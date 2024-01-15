@@ -134,47 +134,25 @@ function _getReplacement(
 }
 
 export namespace UsAscii {
-  // type DecoderOptions = {
-  //   fatal?: boolean;
-  //   replacementChar?: string;
-  //   strict?: boolean;
-  // };
+  type DecoderOptions = {
+    fatal?: boolean;
+    replacementChar?: string;
+    strict?: boolean;
+  };
 
-  // export class Decoder extends TextEncoding.Decoder {
-  //   constructor(options: DecoderOptions = {}) {
-  //     super({
-  //       name: _LABEL,
-  //       fatal: options?.fatal === true,
-  //       replacementRune: _getReplacementRune(options?.replacementChar),
-  //       decodeToRune: _decodeToRune,
-  //       ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
-  //       strict: options?.strict === true,
-  //       maxBytesPerRune: _MAX_BYTES_PER_RUNE,
-  //     });
-  //   }
-
-  //   override decode(
-  //     input: BufferSource = new Uint8Array(0),
-  //     options: TextDecodeOptions = {},
-  //   ): string {
-  //     void options; // 必ず1バイトなので無視
-
-  //     let bytes: Uint8Array;
-  //     if (ArrayBuffer.isView(input)) {
-  //       bytes = new Uint8Array(input.buffer);
-  //     } else if (input instanceof ArrayBuffer) {
-  //       bytes = new Uint8Array(input);
-  //     } else {
-  //       throw new TypeError("input");
-  //     }
-
-  //     const runes = Array.from(bytes, (byte) => {
-  //       return this._common.decodeToRune([byte as Uint8]);
-  //     });
-
-  //     return runes.join("");
-  //   }
-  // }
+  export class Decoder extends TextEncoding.Decoder {
+    constructor(options: DecoderOptions = {}) {
+      super({
+        name: _LABEL,
+        fatal: options?.fatal === true,
+        replacementRune: _getReplacement(options?.replacementChar).rune,
+        decode: _decode,
+        ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
+        strict: options?.strict === true,
+        maxBytesPerRune: _MAX_BYTES_PER_RUNE,
+      });
+    }
+  }
 
   export type EncoderOptions = {
     fatal?: boolean;
