@@ -20,16 +20,20 @@ type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
 // }
 
 function _decode(
+  pending: Array<Uint8>,
   srcBuffer: ArrayBuffer,
   dstRunes: Array<Rune>,
   options: {
+    allowPending: boolean;
     fatal: boolean;
     replacementRune: Rune;
   },
 ): {
   read: SafeInteger;
   written: SafeInteger;
+  pending: Array<Uint8>;
 } {
+  void pending;
   const srcView = new Uint8Array(srcBuffer);
 
   let read = 0;
@@ -59,6 +63,7 @@ function _decode(
   return {
     read,
     written,
+    pending: [],
   };
 }
 
@@ -137,7 +142,7 @@ export namespace UsAscii {
   type DecoderOptions = {
     fatal?: boolean;
     replacementChar?: string;
-    strict?: boolean;
+    // strict?: boolean;
   };
 
   export class Decoder extends TextEncoding.Decoder {
@@ -148,7 +153,7 @@ export namespace UsAscii {
         replacementRune: _getReplacement(options?.replacementChar).rune,
         decode: _decode,
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
-        strict: options?.strict === true,
+        // strict: options?.strict === true,
         maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
     }

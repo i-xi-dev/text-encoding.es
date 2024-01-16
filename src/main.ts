@@ -8,6 +8,14 @@ import {
 } from "../deps.ts";
 import { TextEncoding } from "../mod.ts";
 
+/*TODO
+- $03
+  Encoding Standardでコピーは強く推奨しないとされてるが、どうすべきか
+  ネイティブのTextDecoderだとデタッチもされない
+- $11
+  一旦、SharedArrayBufferは弾くか
+*/
+
 export const BOM = "\u{FEFF}";
 
 const _ErrorMode = {
@@ -40,6 +48,7 @@ class _CoderCommon {
 type _DecoderDecodeIntoResult = {
   read: SafeInteger;
   written: SafeInteger;
+  pending: Array<Uint8>;
 };
 
 type _DecoderCommonInit = {
@@ -47,30 +56,34 @@ type _DecoderCommonInit = {
   fatal: boolean;
   replacementRune: Rune;
   decode: (
+    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
     options: {
+      allowPending: boolean;
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
     },
   ) => _DecoderDecodeIntoResult;
   ignoreBOM: boolean;
-  strict: boolean;
+  // strict: boolean;
   maxBytesPerRune: SafeInteger;
 };
 
 class _DecoderCommon extends _CoderCommon {
   readonly #decode: (
+    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
     options: {
+      allowPending: boolean;
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
     },
   ) => _DecoderDecodeIntoResult;
   readonly #ignoreBOM: boolean;
   readonly #replacementRune: Rune;
-  readonly #strict: boolean;
+  // readonly #strict: boolean;
   readonly #maxBytesPerRune: SafeInteger;
 
   constructor(init: _DecoderCommonInit) {
@@ -78,7 +91,7 @@ class _DecoderCommon extends _CoderCommon {
     this.#replacementRune = init.replacementRune;
     this.#decode = init.decode;
     this.#ignoreBOM = init.ignoreBOM;
-    this.#strict = init.strict;
+    // this.#strict = init.strict;
     this.#maxBytesPerRune = init.maxBytesPerRune;
   }
 
@@ -90,19 +103,22 @@ class _DecoderCommon extends _CoderCommon {
     return this.#replacementRune;
   }
 
-  get strict(): boolean {
-    return this.#strict;
-  }
+  // get strict(): boolean {
+  //   return this.#strict;
+  // }
 
   get maxBytesPerRune(): SafeInteger {
     return this.#maxBytesPerRune;
   }
 
   decode(
+    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
+    allowPending: boolean,
   ): _DecoderDecodeIntoResult {
-    return this.#decode(srcBuffer, dstRunes, {
+    return this.#decode(pending, srcBuffer, dstRunes, {
+      allowPending,
       fatal: this.fatal,
       replacementRune: this.replacementRune,
     });
@@ -179,8 +195,11 @@ class _EncoderCommon extends _CoderCommon {
 export abstract class Decoder implements TextDecoder {
   readonly #common: _DecoderCommon;
 
+  readonly #pending: Array<Uint8>;
+
   protected constructor(init: _DecoderCommonInit) {
     this.#common = new _DecoderCommon(init);
+    this.#pending = [];
   }
 
   get encoding(): string {
@@ -201,18 +220,24 @@ export abstract class Decoder implements TextDecoder {
     if (input === undefined) {
       buffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
     } else if (ArrayBuffer.isView(input)) {
-      buffer = input.buffer;
+      buffer = input.buffer.slice(0); //XXX $03
     } else if (input instanceof ArrayBuffer) {
-      buffer = input;
+      buffer = input.slice(0); //XXX $03
     }
     if (!buffer) { // options.strictは無視する
       throw new TypeError("input");
     }
 
     const runes: Array<Rune> = [];
-    // const { read, written } =
-    this.#common.decode(buffer, runes);
+    const { /*read, written,*/ pending } = this.#common.decode(
+      this.#pending,
+      buffer,
+      runes,
+      options?.stream === true,
+    );
     // console.assert(buffer.byteLength === read);
+    this.#pending.splice(0);
+    this.#pending.push(...pending);
 
     if (this.#common.ignoreBOM !== true) {
       if (runes[0] === TextEncoding.BOM) {
@@ -393,7 +418,7 @@ export abstract class EncoderStream
       }
     }
 
-    let runesAsString = (chunk === undefined) ? "" : String(chunk);
+    let runesAsString = (chunk === undefined) ? "" : String(chunk); //TODO chunkの途中でstring以外が来たらブラウザ等はどうしてるのか
     runesAsString = this.#pending.highSurrogate + runesAsString;
     this.#pending.highSurrogate = "";
 
