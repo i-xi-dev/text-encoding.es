@@ -20,7 +20,6 @@ type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
 // }
 
 function _decode(
-  pending: Array<Uint8>,
   srcBuffer: ArrayBuffer,
   dstRunes: Array<Rune>,
   options: {
@@ -33,7 +32,8 @@ function _decode(
   written: SafeInteger;
   pending: Array<Uint8>;
 } {
-  void pending;
+  void options.allowPending; // 無意味なので無視
+
   const srcView = new Uint8Array(srcBuffer);
 
   let read = 0;

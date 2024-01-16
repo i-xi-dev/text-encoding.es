@@ -56,7 +56,6 @@ type _DecoderCommonInit = {
   fatal: boolean;
   replacementRune: Rune;
   decode: (
-    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
     options: {
@@ -72,7 +71,6 @@ type _DecoderCommonInit = {
 
 class _DecoderCommon extends _CoderCommon {
   readonly #decode: (
-    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
     options: {
@@ -112,12 +110,11 @@ class _DecoderCommon extends _CoderCommon {
   }
 
   decode(
-    pending: Array<Uint8>,
     srcBuffer: ArrayBuffer,
     dstRunes: Array<Rune>,
     allowPending: boolean,
   ): _DecoderDecodeIntoResult {
-    return this.#decode(pending, srcBuffer, dstRunes, {
+    return this.#decode(srcBuffer, dstRunes, {
       allowPending,
       fatal: this.fatal,
       replacementRune: this.replacementRune,
@@ -216,24 +213,35 @@ export abstract class Decoder implements TextDecoder {
 
   //TODO options
   decode(input?: BufferSource, options?: TextDecodeOptions): string {
-    let buffer: ArrayBuffer | undefined;
+    let inputBuffer: ArrayBuffer | undefined;
     if (input === undefined) {
-      buffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
+      inputBuffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
     } else if (ArrayBuffer.isView(input)) {
-      buffer = input.buffer.slice(0); //XXX $03
+      inputBuffer = input.buffer;
     } else if (input instanceof ArrayBuffer) {
-      buffer = input.slice(0); //XXX $03
+      inputBuffer = input;
     }
-    if (!buffer) { // options.strictは無視する
+    if (!inputBuffer) { // options.strictは無視する
       throw new TypeError("input");
     }
 
+    const allowPending = options?.stream === true;
+    const buffer = new ArrayBuffer(
+      inputBuffer.byteLength + this.#pending.length,
+    );
+    const bufferView = new Uint8Array(buffer);
+    for (let i = 0; i < this.#pending.length; i++) {
+      bufferView[i] = this.#pending[i];
+    }
+
+    //XXX $03
+    bufferView.set(new Uint8Array(inputBuffer), this.#pending.length);
+
     const runes: Array<Rune> = [];
     const { /*read, written,*/ pending } = this.#common.decode(
-      this.#pending,
       buffer,
       runes,
-      options?.stream === true,
+      allowPending,
     );
     // console.assert(buffer.byteLength === read);
     this.#pending.splice(0);
