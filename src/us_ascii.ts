@@ -142,7 +142,6 @@ export namespace UsAscii {
   type DecoderOptions = {
     fatal?: boolean;
     replacementChar?: string;
-    // strict?: boolean;
   };
 
   export class Decoder extends TextEncoding.Decoder {
@@ -153,7 +152,6 @@ export namespace UsAscii {
         replacementRune: _getReplacement(options?.replacementChar).rune,
         decode: _decode,
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
-        // strict: options?.strict === true,
         maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
     }

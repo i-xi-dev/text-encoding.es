@@ -11,7 +11,6 @@ import { TextEncoding } from "../mod.ts";
 /*TODO
 - $03
   Encoding Standardでコピーは強く推奨しないとされてるが、どうすべきか
-  ネイティブのTextDecoderだとデタッチもされない
 - $11
   一旦、SharedArrayBufferは弾くか
 */
@@ -65,7 +64,6 @@ type _DecoderCommonInit = {
     },
   ) => _DecoderDecodeIntoResult;
   ignoreBOM: boolean;
-  // strict: boolean;
   maxBytesPerRune: SafeInteger;
 };
 
@@ -81,7 +79,6 @@ class _DecoderCommon extends _CoderCommon {
   ) => _DecoderDecodeIntoResult;
   readonly #ignoreBOM: boolean;
   readonly #replacementRune: Rune;
-  // readonly #strict: boolean;
   readonly #maxBytesPerRune: SafeInteger;
 
   constructor(init: _DecoderCommonInit) {
@@ -89,7 +86,6 @@ class _DecoderCommon extends _CoderCommon {
     this.#replacementRune = init.replacementRune;
     this.#decode = init.decode;
     this.#ignoreBOM = init.ignoreBOM;
-    // this.#strict = init.strict;
     this.#maxBytesPerRune = init.maxBytesPerRune;
   }
 
@@ -100,10 +96,6 @@ class _DecoderCommon extends _CoderCommon {
   get replacementRune(): Rune {
     return this.#replacementRune;
   }
-
-  // get strict(): boolean {
-  //   return this.#strict;
-  // }
 
   get maxBytesPerRune(): SafeInteger {
     return this.#maxBytesPerRune;
@@ -211,7 +203,6 @@ export abstract class Decoder implements TextDecoder {
     return this.#common.ignoreBOM;
   }
 
-  //TODO options
   decode(input?: BufferSource, options?: TextDecodeOptions): string {
     let inputBuffer: ArrayBuffer | undefined;
     if (input === undefined) {
@@ -221,7 +212,7 @@ export abstract class Decoder implements TextDecoder {
     } else if (input instanceof ArrayBuffer) {
       inputBuffer = input;
     }
-    if (!inputBuffer) { // options.strictは無視する
+    if (!inputBuffer) {
       throw new TypeError("input");
     }
 
