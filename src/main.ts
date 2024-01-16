@@ -259,7 +259,17 @@ export abstract class DecoderStream implements TextDecoderStream {
 
     const self = (): DecoderStream => this;
     const transformer: Transformer<Uint8Array, string> = {
-      //TODO
+      transform(
+        chunk: Uint8Array,
+        controller: TransformStreamDefaultController<string>,
+      ): void {
+        const decoded = self()._decodeChunk(chunk, false);
+        controller.enqueue(decoded);
+      },
+      flush(controller: TransformStreamDefaultController<string>): void {
+        const decoded = self()._decodeChunk(undefined, true);
+        controller.enqueue(decoded);
+      },
     };
 
     this.#stream = new _TransformStream<Uint8Array, string>(transformer);
@@ -287,8 +297,8 @@ export abstract class DecoderStream implements TextDecoderStream {
 
   abstract get [Symbol.toStringTag](): string;
 
-  protected _decodeChunk(chunk: Uint8Array): string {
-    //
+  protected _decodeChunk(chunk = Uint8Array.of(0), flush: boolean): string {
+    //TODO
   }
 }
 
