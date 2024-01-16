@@ -247,9 +247,50 @@ export abstract class Decoder implements TextDecoder {
   }
 }
 
-//TODO
-// export abstract class DecoderStream implements TextDecoderStream {
-// }
+export abstract class DecoderStream implements TextDecoderStream {
+  readonly #common: _DecoderCommon;
+
+  readonly #stream: TransformStream<Uint8Array, string>;
+
+  #firstChunkLoaded = false;
+
+  protected constructor(init: _DecoderCommonInit) {
+    this.#common = new _DecoderCommon(init);
+
+    const self = (): DecoderStream => this;
+    const transformer: Transformer<Uint8Array, string> = {
+      //TODO
+    };
+
+    this.#stream = new _TransformStream<Uint8Array, string>(transformer);
+  }
+
+  get encoding(): string {
+    return this.#common.encoding;
+  }
+
+  get fatal(): boolean {
+    return this.#common.fatal;
+  }
+
+  get ignoreBOM(): boolean {
+    return this.#common.ignoreBOM;
+  }
+
+  get readable(): ReadableStream {
+    return this.#stream.readable;
+  }
+
+  get writable(): WritableStream {
+    return this.#stream.writable;
+  }
+
+  abstract get [Symbol.toStringTag](): string;
+
+  protected _decodeChunk(chunk: Uint8Array): string {
+    //
+  }
+}
 
 export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
   readonly #common: _EncoderCommon;
@@ -375,7 +416,7 @@ export abstract class EncoderStream
     this.#pending = Object.seal({
       highSurrogate: "",
     });
-    this.#stream = new _TransformStream<string, Uint8Array>(transformer); // $011
+    this.#stream = new _TransformStream<string, Uint8Array>(transformer);
   }
 
   get encoding(): string {
@@ -398,9 +439,7 @@ export abstract class EncoderStream
     return this.#stream.writable;
   }
 
-  // get [Symbol.toStringTag](): string {
-  //   return "";
-  // }
+  abstract get [Symbol.toStringTag](): string;
 
   /**
    * チャンクを符号化

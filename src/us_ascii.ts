@@ -189,5 +189,9 @@ export namespace UsAscii {
         maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
     }
+
+    override get [Symbol.toStringTag](): string {
+      return "UsAscii.EncoderStream";
+    }
   }
 }
