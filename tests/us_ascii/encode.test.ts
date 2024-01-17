@@ -63,7 +63,7 @@ Deno.test("UsAscii.Encoder.encode(string) - strict", () => {
       encoder.encode();
     },
     TypeError,
-    "input",
+    "srcRunesAsString",
   );
 
   // encode(string)
@@ -103,7 +103,7 @@ Deno.test("UsAscii.Encoder.encode(string) - strict", () => {
       encoder.encode(0 as unknown as string);
     },
     TypeError,
-    "input",
+    "srcRunesAsString",
   );
 });
 

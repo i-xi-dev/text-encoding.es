@@ -71,7 +71,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - strict", () => {
       encoder.encodeInto(undefined as unknown as string, b1);
     },
     TypeError,
-    "source",
+    "srcRunesAsString",
   );
 
   // encode(string)
@@ -123,7 +123,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - strict", () => {
       encoder.encodeInto(0 as unknown as string, b9);
     },
     TypeError,
-    "source",
+    "srcRunesAsString",
   );
 });
 

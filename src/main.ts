@@ -114,6 +114,18 @@ class _DecoderCommon extends _CoderCommon {
   }
 }
 
+export type EncodeResult = {
+  readRuneCount: SafeInteger;
+  writtenByteCount: SafeInteger;
+};
+
+type _EncoderDecodeIntoResult = {
+  readRuneCount: SafeInteger;
+  writtenByteCount: SafeInteger;
+  buffer: ArrayBuffer;
+  pending: string;
+};
+
 type _EncoderCommonInit = {
   name: string;
   fatal: boolean;
@@ -125,7 +137,7 @@ type _EncoderCommonInit = {
       fatal: boolean;
       replacementBytes: Array<Uint8>;
     },
-  ) => TextEncoderEncodeIntoResult;
+  ) => EncodeResult;
   prependBOM: boolean;
   strict: boolean;
   maxBytesPerRune: SafeInteger;
@@ -139,7 +151,7 @@ class _EncoderCommon extends _CoderCommon {
       fatal: boolean;
       replacementBytes: Array<Uint8>;
     },
-  ) => TextEncoderEncodeIntoResult;
+  ) => EncodeResult;
   readonly #prependBOM: boolean;
   readonly #replacementBytes: Array<Uint8>;
   readonly #strict: boolean;
@@ -171,13 +183,65 @@ class _EncoderCommon extends _CoderCommon {
   }
 
   encode(
-    srcRunesAsString: string,
-    dstBuffer: ArrayBuffer,
-  ): TextEncoderEncodeIntoResult {
-    return this.#encode(srcRunesAsString, dstBuffer, {
-      fatal: this.fatal,
-      replacementBytes: this.replacementBytes,
-    });
+    prependBOM: boolean,
+    previousPending: string,
+    srcRunesAsString?: string,
+    dstBuffer?: ArrayBuffer,
+  ): _EncoderDecodeIntoResult {
+    if (this.#strict === true) {
+      if (StringEx.isString(srcRunesAsString) !== true) {
+        throw new TypeError("srcRunesAsString");
+      }
+    }
+    //TODO 第2引数がbufferではない場合どうなる
+    const dstBufferSpecified = !!dstBuffer;
+
+    let runesAsString = (srcRunesAsString === undefined)
+      ? ""
+      : String(srcRunesAsString); // TextEncoderにあわせた(つもり)//TODO streamでchunkの途中でstring以外が来たらブラウザ等はどうしてるのか
+
+    if (
+      (prependBOM === true) &&
+      (runesAsString.startsWith(BOM) !== true)
+    ) {
+      runesAsString = BOM + runesAsString;
+    } else {
+      runesAsString = previousPending + runesAsString;
+    }
+
+    let pending = "";
+    const lastChar = runesAsString.slice(-1);
+    if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
+      pending = lastChar;
+      runesAsString = runesAsString.slice(0, -1);
+    } //TODO 末尾に単独の上位サロゲートが連続してたらブラウザ等はどうしてるのか
+
+    let buffer: ArrayBuffer;
+    if (dstBufferSpecified === true) {
+      buffer = dstBuffer;
+    } else {
+      buffer = new ArrayBuffer(runesAsString.length * this.#maxBytesPerRune);
+    }
+
+    const { readRuneCount, writtenByteCount } = this.#encode(
+      runesAsString,
+      buffer,
+      {
+        fatal: this.fatal,
+        replacementBytes: this.#replacementBytes,
+      },
+    );
+
+    if (dstBufferSpecified !== true) {
+      buffer = buffer.slice(0, writtenByteCount);
+    }
+
+    return {
+      readRuneCount,
+      writtenByteCount,
+      buffer,
+      pending,
+    };
   }
 }
 
@@ -259,17 +323,17 @@ export abstract class DecoderStream implements TextDecoderStream {
 
     const self = (): DecoderStream => this;
     const transformer: Transformer<Uint8Array, string> = {
-      transform(
-        chunk: Uint8Array,
-        controller: TransformStreamDefaultController<string>,
-      ): void {
-        const decoded = self()._decodeChunk(chunk, false);
-        controller.enqueue(decoded);
-      },
-      flush(controller: TransformStreamDefaultController<string>): void {
-        const decoded = self()._decodeChunk(undefined, true);
-        controller.enqueue(decoded);
-      },
+      // transform(
+      //   chunk: Uint8Array,
+      //   controller: TransformStreamDefaultController<string>,
+      // ): void {
+      //   const decoded = self()._decodeChunk(chunk, false);
+      //   controller.enqueue(decoded);
+      // },
+      // flush(controller: TransformStreamDefaultController<string>): void {
+      //   const decoded = self()._decodeChunk(undefined, true);
+      //   controller.enqueue(decoded);
+      // },
     };
 
     this.#stream = new _TransformStream<Uint8Array, string>(transformer);
@@ -297,9 +361,9 @@ export abstract class DecoderStream implements TextDecoderStream {
 
   abstract get [Symbol.toStringTag](): string;
 
-  protected _decodeChunk(chunk = Uint8Array.of(0), flush: boolean): string {
-    //TODO
-  }
+  // protected _decodeChunk(chunk = Uint8Array.of(0), flush: boolean): string {
+  //   //TODO
+  // }
 }
 
 export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
@@ -327,31 +391,8 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
    * @see [TextEncoder.encode](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encode)
    */
   encode(input?: string): Uint8Array {
-    if (this.#common.strict === true) {
-      if (StringEx.isString(input) !== true) {
-        throw new TypeError("input");
-      }
-    }
-
-    let runesAsString = (input === undefined) ? "" : String(input); // TextEncoderにあわせた(つもり)
-    let bomPrepended = false;
-    if (
-      (this.#common.prependBOM === true) &&
-      (runesAsString.startsWith(BOM) !== true)
-    ) {
-      runesAsString = BOM + runesAsString;
-      bomPrepended = true;
-    }
-
-    const buffer = new ArrayBuffer(
-      runesAsString.length * this.#common.maxBytesPerRune +
-        (bomPrepended ? this.#common.maxBytesPerRune : 0),
-    );
-
-    const { /* read,*/ written } = this.#common.encode(runesAsString, buffer);
-    // console.assert(runesAsString.length === read);
-
-    return new Uint8Array(buffer.slice(0, written));
+    const { buffer } = this.#common.encode(this.prependBOM, "", input);
+    return new Uint8Array(buffer);
   }
 
   //XXX throws TypeError: strict:true、かつ、入力がstring型ではないとき
@@ -363,26 +404,15 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     source: string,
     destination: Uint8Array,
   ): TextEncoderEncodeIntoResult {
-    if (this.#common.strict === true) {
-      if (StringEx.isString(source) !== true) {
-        throw new TypeError("source");
-      }
-    }
-    let runesAsString = (source === undefined) ? "" : String(source); // TextEncoderにあわせた(つもり)
-    if (
-      (this.#common.prependBOM === true) &&
-      (runesAsString.startsWith(BOM) !== true)
-    ) {
-      runesAsString = BOM + runesAsString;
-    }
-
-    const { read, written } = this.#common.encode(
-      runesAsString,
+    const { readRuneCount, writtenByteCount } = this.#common.encode(
+      this.prependBOM,
+      "",
+      source,
       destination.buffer,
     );
     return {
-      read,
-      written,
+      read: readRuneCount,
+      written: writtenByteCount,
     };
   }
 }
@@ -460,41 +490,13 @@ export abstract class EncoderStream
    * @returns chunkを符号化したバイト列
    */
   protected _encodeChunk(chunk: string): Uint8Array {
-    if (this.#common.strict === true) {
-      if (StringEx.isString(chunk) !== true) {
-        throw new TypeError("chunk");
-      }
-    }
-
-    let runesAsString = (chunk === undefined) ? "" : String(chunk); //TODO chunkの途中でstring以外が来たらブラウザ等はどうしてるのか
-    runesAsString = this.#pending.highSurrogate + runesAsString;
-    this.#pending.highSurrogate = "";
-
-    const lastChar = runesAsString.slice(-1);
-    if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
-      this.#pending.highSurrogate = lastChar;
-      runesAsString = runesAsString.slice(0, -1);
-    }
-
-    let bomPrepended = false;
+    let prependBOM = false;
     if (this.#firstChunkLoaded !== true) {
       this.#firstChunkLoaded = true;
-      if (
-        (this.#common.prependBOM === true) &&
-        (runesAsString.startsWith(BOM) !== true)
-      ) {
-        runesAsString = BOM + runesAsString;
-        bomPrepended = true;
-      }
+      prependBOM = this.prependBOM === true;
     }
-
-    const buffer = new ArrayBuffer(
-      runesAsString.length * this.#common.maxBytesPerRune +
-        (bomPrepended ? this.#common.maxBytesPerRune : 0),
-    );
-
-    const { /* read,*/ written } = this.#common.encode(runesAsString, buffer);
-
-    return new Uint8Array(buffer.slice(0, written));
+    const { buffer, pending } = this.#common.encode(prependBOM, this.#pending.highSurrogate, chunk);
+    this.#pending.highSurrogate = pending;
+    return new Uint8Array(buffer);
   }
 }

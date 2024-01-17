@@ -74,38 +74,38 @@ function _encode(
     fatal: boolean;
     replacementBytes: Array<Uint8>;
   },
-): TextEncoderEncodeIntoResult {
+): TextEncoding.EncodeResult {
   const dstView = new Uint8Array(dstBuffer);
 
-  let read = 0;
-  let written = 0;
+  let readRuneCount = 0;
+  let writtenByteCount = 0;
 
   for (const rune of srcRunesAsString) {
     const codePoint = rune.codePointAt(0) as CodePoint;
 
-    if ((written + 1) > dstView.length) {
+    if ((writtenByteCount + 1) > dstView.length) {
       break;
     }
-    read = read + rune.length;
+    readRuneCount = readRuneCount + rune.length;
 
     if (Uint7.isUint7(codePoint)) {
-      dstView[written] = codePoint;
-      written = written + 1;
+      dstView[writtenByteCount] = codePoint;
+      writtenByteCount = writtenByteCount + 1;
     } else {
       if (options.fatal === true) {
         throw new TypeError(
           `encode-error: ${rune} ${CodePoint.toString(codePoint)}`,
         );
       } else {
-        dstView[written] = options.replacementBytes[0];
-        written = written + 1;
+        dstView[writtenByteCount] = options.replacementBytes[0];
+        writtenByteCount = writtenByteCount + 1;
       }
     }
   }
 
   return {
-    read,
-    written,
+    readRuneCount,
+    writtenByteCount,
   };
 }
 
