@@ -45,8 +45,8 @@ class _CoderCommon {
 }
 
 type _DecoderDecodeIntoResult = {
-  read: SafeInteger;
-  written: SafeInteger;
+  readByteCount: SafeInteger;
+  writtenRuneCount: SafeInteger;
   pending: Array<Uint8>;
 };
 
@@ -122,8 +122,8 @@ export type EncodeResult = {
 type _EncoderDecodeIntoResult = {
   readRuneCount: SafeInteger;
   writtenByteCount: SafeInteger;
-  buffer: ArrayBuffer;
-  pending: string;
+  writtenBuffer: ArrayBuffer;
+  pendingChar: string;
 };
 
 type _EncoderCommonInit = {
@@ -209,10 +209,10 @@ class _EncoderCommon extends _CoderCommon {
       runesAsString = previousPending + runesAsString;
     }
 
-    let pending = "";
+    let pendingChar = "";
     const lastChar = runesAsString.slice(-1);
     if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
-      pending = lastChar;
+      pendingChar = lastChar;
       runesAsString = runesAsString.slice(0, -1);
     } //TODO 末尾に単独の上位サロゲートが連続してたらブラウザ等はどうしてるのか
 
@@ -239,8 +239,8 @@ class _EncoderCommon extends _CoderCommon {
     return {
       readRuneCount,
       writtenByteCount,
-      buffer,
-      pending,
+      writtenBuffer: buffer,
+      pendingChar,
     };
   }
 }
@@ -293,12 +293,13 @@ export abstract class Decoder implements TextDecoder {
     bufferView.set(new Uint8Array(inputBuffer), this.#pending.length);
 
     const runes: Array<Rune> = [];
-    const { /*read, written,*/ pending } = this.#common.decode(
-      buffer,
-      runes,
-      allowPending,
-    );
-    // console.assert(buffer.byteLength === read);
+    const { /*readByteCount, writtenRuneCount,*/ pending } = this.#common
+      .decode(
+        buffer,
+        runes,
+        allowPending,
+      );
+    // console.assert(buffer.byteLength === readByteCount);
     this.#pending.splice(0);
     this.#pending.push(...pending);
 
@@ -391,8 +392,8 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
    * @see [TextEncoder.encode](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encode)
    */
   encode(input?: string): Uint8Array {
-    const { buffer } = this.#common.encode(this.prependBOM, "", input);
-    return new Uint8Array(buffer);
+    const { writtenBuffer } = this.#common.encode(this.prependBOM, "", input);
+    return new Uint8Array(writtenBuffer);
   }
 
   //XXX throws TypeError: strict:true、かつ、入力がstring型ではないとき
@@ -495,8 +496,12 @@ export abstract class EncoderStream
       this.#firstChunkLoaded = true;
       prependBOM = this.prependBOM === true;
     }
-    const { buffer, pending } = this.#common.encode(prependBOM, this.#pending.highSurrogate, chunk);
-    this.#pending.highSurrogate = pending;
-    return new Uint8Array(buffer);
+    const { writtenBuffer, pendingChar } = this.#common.encode(
+      prependBOM,
+      this.#pending.highSurrogate,
+      chunk,
+    );
+    this.#pending.highSurrogate = pendingChar;
+    return new Uint8Array(writtenBuffer);
   }
 }

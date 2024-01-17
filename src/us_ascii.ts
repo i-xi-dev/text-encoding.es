@@ -28,26 +28,26 @@ function _decode(
     replacementRune: Rune;
   },
 ): {
-  read: SafeInteger;
-  written: SafeInteger;
+  readByteCount: SafeInteger;
+  writtenRuneCount: SafeInteger;
   pending: Array<Uint8>;
 } {
   void options.allowPending; // 無意味なので無視
 
   const srcView = new Uint8Array(srcBuffer);
 
-  let read = 0;
-  let written = 0;
+  let readByteCount = 0;
+  let writtenRuneCount = 0;
 
   for (const byte of srcView) {
-    // if ((written + 1) > xxx) {
+    // if ((writtenRuneCount + 1) > xxx) {
     //   break;
     // }
-    read = read + Uint8.BYTES;
+    readByteCount = readByteCount + Uint8.BYTES;
 
     if (Uint7.isUint7(byte)) {
       dstRunes.push(String.fromCharCode(byte));
-      written = written + 1;
+      writtenRuneCount = writtenRuneCount + 1;
     } else {
       if (options.fatal === true) {
         throw new TypeError(
@@ -55,14 +55,14 @@ function _decode(
         );
       } else {
         dstRunes.push(options.replacementRune);
-        written = written + 1;
+        writtenRuneCount = writtenRuneCount + 1;
       }
     }
   }
 
   return {
-    read,
-    written,
+    readByteCount,
+    writtenRuneCount,
     pending: [],
   };
 }
