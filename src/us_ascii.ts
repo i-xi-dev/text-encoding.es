@@ -1,11 +1,5 @@
 import * as TextEncoding from "./main.ts";
-import {
-  CodePoint,
-  Rune,
-  StringEx,
-  Uint7,
-  Uint8,
-} from "../deps.ts";
+import { CodePoint, Rune, StringEx, Uint7, Uint8 } from "../deps.ts";
 
 const _LABEL = "US-ASCII";
 
@@ -135,7 +129,10 @@ function _getReplacement(
 
 export namespace UsAscii {
   type DecoderOptions = {
+    /** デフォルトfalseだがtrue推奨 */
     fatal?: boolean;
+
+    /** @deprecated */
     replacementChar?: string;
   };
 
@@ -170,8 +167,13 @@ export namespace UsAscii {
   }
 
   export type EncoderOptions = {
+    /** デフォルトfalseだがtrue推奨 */
     fatal?: boolean;
+
+    /** @deprecated */
     replacementChar?: string;
+
+    /** デフォルトfalseだがtrue推奨 */
     strict?: boolean;
   };
 

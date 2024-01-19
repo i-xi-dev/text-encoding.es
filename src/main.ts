@@ -487,17 +487,25 @@ export abstract class EncoderStream
         chunk: string,
         controller: TransformStreamDefaultController<Uint8Array>,
       ): void {
-        const encoded = self()._encodeChunk(chunk);
-        controller.enqueue(encoded);
-        //TODO error
+        try {
+          const encoded = self()._encodeChunk(chunk);
+          if (encoded.length > 0) {
+            controller.enqueue(encoded);
+          }
+        } catch (exception) {
+          controller.error(exception);
+        }
       },
       flush(controller: TransformStreamDefaultController<Uint8Array>): void {
-        if (self().#pendingChar.length > 0) {
-          controller.enqueue(
-            Uint8Array.from(self().#common.replacementBytes),
-          );
+        try {
+          if (self().#pendingChar.length > 0) {
+            controller.enqueue(
+              Uint8Array.from(self().#common.replacementBytes),
+            );
+          }
+        } catch (exception) {
+          controller.error(exception);
         }
-        //TODO error
       },
     };
 

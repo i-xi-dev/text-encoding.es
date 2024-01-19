@@ -30,7 +30,7 @@ const streamSrc1 = [
   Uint8Array.of(0x3F),
   Uint8Array.of(),
   Uint8Array.of(0x41),
-  Uint8Array.of(0x3F),
+  Uint8Array.of(0x7F),
   Uint8Array.of(0x41),
   Uint8Array.of(0x3F),
   Uint8Array.of(0x41),
@@ -49,7 +49,7 @@ const streamExpected1 = [
   "?",
   "?",
   "A",
-  "?",
+  "\u007F",
   "A",
   "?",
   "A",
@@ -60,7 +60,7 @@ const streamExpected1 = [
   "A",
 ];
 
-Deno.test("UsAscii.DecoderStream.prototype.writable", async () => {
+Deno.test("UsAscii.DecoderStream.prototype.readable,writable - U+007FまでのUTF-8との比較", async () => {
   // deno-lint-ignore no-explicit-any
   let ti: any;
   const s = new ReadableStream({
@@ -101,7 +101,7 @@ Deno.test("UsAscii.DecoderStream.prototype.writable", async () => {
   assertStrictEquals(JSON.stringify(result1), JSON.stringify(streamExpected1));
 });
 
-Deno.test("- 比較テスト - TextDecoderStream.prototype.writable", async () => {
+Deno.test("TextDecoderStream.prototype.readable,writable - U+007FまでのUTF-8との比較", async () => {
   // deno-lint-ignore no-explicit-any
   let ti: any;
   const s = new ReadableStream({
@@ -142,85 +142,7 @@ Deno.test("- 比較テスト - TextDecoderStream.prototype.writable", async () =
   assertStrictEquals(JSON.stringify(result1), JSON.stringify(streamExpected1));
 });
 
-Deno.test("UsAscii.DecoderStream.prototype.writable - 2", async () => {
-  const td = [
-    Uint8Array.of(0x41, 0x42, 0x43),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(),
-    Uint8Array.of(0x41),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(0x41),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(0x41),
-    Uint8Array.of(0x41, 0x41),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(0x41),
-    Uint8Array.of(0x00),
-    Uint8Array.of(0x3F),
-    Uint8Array.of(),
-    Uint8Array.of(),
-    Uint8Array.of(),
-  ];
-
-  // deno-lint-ignore no-explicit-any
-  let ti: any;
-  const s = new ReadableStream({
-    start(controller) {
-      let c = 0;
-      ti = setInterval(() => {
-        if (c >= 15) {
-          clearInterval(ti);
-          controller.close();
-          return;
-        }
-        controller.enqueue(td[c]);
-        c = c + 1;
-      }, 10);
-    },
-  });
-
-  await (() => {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, 200);
-    });
-  })();
-
-  const encoder1 = new UsAscii.DecoderStream();
-
-  const result: string[] = [];
-  let written = 0;
-  const ws = new WritableStream({
-    write(chunk) {
-      result.push(chunk);
-      written = written + chunk.byteLength;
-    },
-  });
-  await s.pipeThrough(encoder1).pipeTo(ws);
-  //await s.pipeTo(ws);
-
-  const expected = [
-    "ABC",
-    "?",
-    "?",
-    "A",
-    "?",
-    "A",
-    "?",
-    "A",
-    "AA",
-    "?",
-    "A",
-    "\u0000",
-    "?",
-  ];
-
-  assertStrictEquals(JSON.stringify(result), JSON.stringify(expected));
-});
-
-Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:false", async () => {
+Deno.test("UsAscii.DecoderStream.prototype.readable,writable - fatal:false", async () => {
   const td = [
     Uint8Array.of(0x41, 0x42, 0x43),
     Uint8Array.of(0x3F),
@@ -298,7 +220,7 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:false", async () =
   assertStrictEquals(JSON.stringify(result), JSON.stringify(expected));
 });
 
-Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:false;replacementChar:string", async () => {
+Deno.test("UsAscii.DecoderStream.prototype.readable,writable - fatal:false; replacementChar:string", async () => {
   const td = [
     Uint8Array.of(0x41, 0x42, 0x43),
     Uint8Array.of(0x3F),
@@ -379,7 +301,7 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:false;replacementC
   assertStrictEquals(JSON.stringify(result), JSON.stringify(expected));
 });
 
-Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:true", async () => {
+Deno.test("UsAscii.DecoderStream.prototype.readable,writable - fatal:true", async () => {
   const td = [
     Uint8Array.of(0x41, 0x42, 0x43),
     Uint8Array.of(0x3F),
@@ -435,6 +357,8 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:true", async () =>
       written = written + chunk.byteLength;
     },
     abort(reason) {
+      console.log("UnderlyingSink.abort");
+      //console.log(reason);
       assertStrictEquals(reason.name, "TypeError");
       assertStrictEquals(reason.message, "decode-error: 0xFF");
     },
@@ -444,9 +368,10 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:true", async () =>
     await s.pipeThrough(encoder1).pipeTo(ws);
   } catch (e) {
     console.log("try-catch");
-    console.log(e);
+    //console.log(e);
+    assertStrictEquals(e.name, "TypeError");
+    assertStrictEquals(e.message, "decode-error: 0xFF");
   }
-  //await encoder1.readable.cancel(); // ？
 
   const expected = [
     "ABC",
@@ -467,7 +392,7 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:true", async () =>
   assertStrictEquals(JSON.stringify(result), JSON.stringify(expected));
 });
 
-// Deno.test("- 比較テスト - TextDecoderStream.prototype.writable - 3:fatal:true", async () => {
+// Deno.test("- 比較テスト - TextDecoderStream.prototype.readable,writable - fatal:true", async () => {
 //   try {
 //     const td = [
 //       Uint8Array.of(0x41, 0x42, 0x43),
@@ -560,7 +485,7 @@ Deno.test("UsAscii.DecoderStream.prototype.writable - 3:fatal:true", async () =>
 
 //     assertStrictEquals(JSON.stringify(result), JSON.stringify(expected));
 //   } catch (e) {
-//     console.log("root"); // たぶん、、、TextDecoderStreamの問題
+//     console.log("root"); // たぶんTextDecoderStreamの問題
 //     console.log(e);
 //   }
 // });
