@@ -417,7 +417,7 @@ Deno.test("UsAscii.EncoderStream.prototype.readable,writable - fatal:true", asyn
       console.log("UnderlyingSink.abort");
       //console.log(reason);
       assertStrictEquals(reason.name, "TypeError");
-      assertStrictEquals(reason.message, "encode-error: あ U+3042");
+      assertStrictEquals(reason.message, "encode-error: U+3042");
     },
   });
 
@@ -427,7 +427,7 @@ Deno.test("UsAscii.EncoderStream.prototype.readable,writable - fatal:true", asyn
     console.log("try-catch");
     //console.log(e);
     assertStrictEquals(e.name, "TypeError");
-    assertStrictEquals(e.message, "encode-error: あ U+3042");
+    assertStrictEquals(e.message, "encode-error: U+3042");
   }
 
   const expected = [

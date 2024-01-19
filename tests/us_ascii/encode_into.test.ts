@@ -174,7 +174,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - fatal", () => {
       encoder.encodeInto("\u0000\u00FF", b5);
     },
     TypeError,
-    "encode-error: \u00FF U+00FF",
+    "encode-error: U+00FF",
   );
 
   assertThrows(
@@ -183,7 +183,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - fatal", () => {
       encoder.encodeInto("\u0000\u{2000B}", b6);
     },
     TypeError,
-    "encode-error: \u{2000B} U+2000B",
+    "encode-error: U+2000B",
   );
 
   assertThrows(
@@ -192,7 +192,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - fatal", () => {
       encoder.encodeInto("\u0100", b7);
     },
     TypeError,
-    "encode-error: \u0100 U+0100",
+    "encode-error: U+0100",
   );
 
   assertThrows(
@@ -201,7 +201,7 @@ Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array) - fatal", () => {
       encoder.encodeInto("あ", b8);
     },
     TypeError,
-    "encode-error: あ U+3042",
+    "encode-error: U+3042",
   );
 
   const b9 = new Uint8Array(8);

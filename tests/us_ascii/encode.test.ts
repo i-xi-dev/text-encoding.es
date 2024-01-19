@@ -130,14 +130,14 @@ Deno.test("UsAscii.Encoder.encode(string) - fatal", () => {
       JSON.stringify([...encoder.encode("\u0000\u00FF")]);
     },
     TypeError,
-    "encode-error: \u00FF U+00FF",
+    "encode-error: U+00FF",
   );
   assertThrows(
     () => {
       JSON.stringify([...encoder.encode("\u0000\u{2000B}")]);
     },
     TypeError,
-    "encode-error: \u{2000B} U+2000B",
+    "encode-error: U+2000B",
   );
 
   const c = 1200000;
@@ -152,7 +152,7 @@ Deno.test("UsAscii.Encoder.encode(string) - fatal", () => {
       encoder.encode("\u0100");
     },
     TypeError,
-    "encode-error: \u0100 U+0100",
+    "encode-error: U+0100",
   );
 
   assertThrows(
@@ -160,7 +160,7 @@ Deno.test("UsAscii.Encoder.encode(string) - fatal", () => {
       encoder.encode("あ");
     },
     TypeError,
-    "encode-error: あ U+3042",
+    "encode-error: U+3042",
   );
 
   // encode(any)

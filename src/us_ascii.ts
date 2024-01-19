@@ -83,7 +83,7 @@ function _encode(
     } else {
       if (options.fatal === true) {
         throw new TypeError(
-          `encode-error: ${rune} ${CodePoint.toString(codePoint)}`,
+          `encode-error: ${CodePoint.toString(codePoint)}`,
         );
       } else {
         dstView[writtenByteCount] = options.replacementBytes[0];
