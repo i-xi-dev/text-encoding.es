@@ -1,6 +1,18 @@
 import { assertStrictEquals, assertThrows } from "../deps.ts";
 import { UsAscii } from "../../mod.ts";
 
+Deno.test("UsAscii.Encoder.encodeInto(string, any)", () => {
+  const encoder = new UsAscii.Encoder();
+
+  assertThrows(
+    () => {
+      encoder.encodeInto("1", undefined as unknown as Uint8Array);
+    },
+    TypeError,
+    "destination",
+  );
+});
+
 Deno.test("UsAscii.Encoder.encodeInto(string, Uint8Array)", () => {
   const encoder = new UsAscii.Encoder();
 

@@ -8,7 +8,7 @@ import {
 } from "../deps.ts";
 import { TextEncoding } from "../mod.ts";
 
-/*TODO
+/*XXX
 - $03
   Encoding Standardでコピーは強く推奨しないとされてるが、どうすべきか
 - $11
@@ -238,12 +238,12 @@ class _EncoderCommon extends _CoderCommon {
         throw new TypeError("srcRunesAsString");
       }
     }
-    //TODO encodeInto第2引数がbufferではない場合どうなる
+
     const dstBufferSpecified = !!dstBuffer;
 
     let runesAsString = (srcRunesAsString === undefined)
       ? ""
-      : String(srcRunesAsString); // TextEncoderにあわせた(つもり)//TODO streamでchunkの途中でstring以外が来たらブラウザ等はどうしてるのか
+      : String(srcRunesAsString); // TextEncoder,TextEncoderStreamにあわせた(つもり)
 
     if (
       (prependBOM === true) &&
@@ -259,7 +259,7 @@ class _EncoderCommon extends _CoderCommon {
     if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
       pendingChar = lastChar;
       runesAsString = runesAsString.slice(0, -1);
-    } //TODO 末尾に単独の上位サロゲートが連続してたらブラウザ等はどうしてるのか → 上位でも下位でも単独サロゲートはU+FFFDとしてエンコード
+    }
 
     let buffer: ArrayBuffer;
     if (dstBufferSpecified === true) {
@@ -453,6 +453,11 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
     source: string,
     destination: Uint8Array,
   ): TextEncoderEncodeIntoResult {
+    if ((destination instanceof Uint8Array) !== true) {
+      // Uint8Array以外のArrayBufferViewやArrayBufferとかも受け付けない
+      throw new TypeError("destination");
+    }
+
     const { readRuneCount, writtenByteCount } = this.#common.encode(
       this.prependBOM,
       "",
