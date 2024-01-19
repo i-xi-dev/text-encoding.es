@@ -46,7 +46,7 @@ class _CoderCommon {
 
 export type DecodeResult = {
   readByteCount: SafeInteger;
-  writtenRuneCount: SafeInteger;
+  writtenRuneCount: SafeInteger; //TODO 要らないのでは
   pendingBytes: Array<Uint8>;
 };
 
@@ -162,7 +162,7 @@ class _DecoderCommon extends _CoderCommon {
 }
 
 export type EncodeResult = {
-  readRuneCount: SafeInteger;
+  readCharCount: SafeInteger;
   writtenByteCount: SafeInteger;
 };
 
@@ -268,7 +268,7 @@ class _EncoderCommon extends _CoderCommon {
       buffer = new ArrayBuffer(runesAsString.length * this.#maxBytesPerRune);
     }
 
-    const { readRuneCount, writtenByteCount } = this.#encode(
+    const { readCharCount, writtenByteCount } = this.#encode(
       runesAsString,
       buffer,
       {
@@ -282,7 +282,7 @@ class _EncoderCommon extends _CoderCommon {
     }
 
     return {
-      readRuneCount,
+      readCharCount,
       writtenByteCount,
       writtenBuffer: buffer,
       pendingChar,
@@ -458,14 +458,14 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
       throw new TypeError("destination");
     }
 
-    const { readRuneCount, writtenByteCount } = this.#common.encode(
+    const { readCharCount, writtenByteCount } = this.#common.encode(
       this.prependBOM,
       "",
       source,
       destination.buffer,
     );
     return {
-      read: readRuneCount,
+      read: readCharCount,
       written: writtenByteCount,
     };
   }

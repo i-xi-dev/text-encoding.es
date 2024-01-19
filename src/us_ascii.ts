@@ -66,7 +66,7 @@ function _encode(
 ): TextEncoding.EncodeResult {
   const dstView = new Uint8Array(dstBuffer);
 
-  let readRuneCount = 0;
+  let readCharCount = 0;
   let writtenByteCount = 0;
 
   for (const rune of srcRunesAsString) {
@@ -75,7 +75,7 @@ function _encode(
     if ((writtenByteCount + 1) > dstView.length) {
       break;
     }
-    readRuneCount = readRuneCount + rune.length;
+    readCharCount = readCharCount + rune.length;
 
     if (Uint7.isUint7(codePoint)) {
       dstView[writtenByteCount] = codePoint;
@@ -93,7 +93,7 @@ function _encode(
   }
 
   return {
-    readRuneCount,
+    readCharCount,
     writtenByteCount,
   };
 }
