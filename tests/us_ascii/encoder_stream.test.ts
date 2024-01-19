@@ -81,7 +81,7 @@ Deno.test("UsAscii.EncoderStream.prototype.writable", async () => {
     },
   });
   await s.pipeThrough(encoder1).pipeTo(ws);
-  await s.pipeTo(ws);
+  //await s.pipeTo(ws);
 
   const expected = "0x41,0x42,0x43,0x3F,0x3F," +
     "0x41,0x3F,0x41,0x3F,0x41," +
@@ -152,7 +152,7 @@ Deno.test("UsAscii.EncoderStream.prototype.writable - 2", async () => {
     },
   });
   await s.pipeThrough(encoder1).pipeTo(ws);
-  await s.pipeTo(ws);
+  //await s.pipeTo(ws);
 
   const expected = "0x41,0x42,0x43,0x3F,0x3F," +
     "0x41,0x3F,0x41,0x3F,0x41," +

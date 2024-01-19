@@ -2,7 +2,6 @@ import * as TextEncoding from "./main.ts";
 import {
   CodePoint,
   Rune,
-  SafeInteger,
   StringEx,
   Uint7,
   Uint8,
@@ -27,11 +26,7 @@ function _decode(
     fatal: boolean;
     replacementRune: Rune;
   },
-): {
-  readByteCount: SafeInteger;
-  writtenRuneCount: SafeInteger;
-  pending: Array<Uint8>;
-} {
+): TextEncoding.DecodeResult {
   void options.allowPending; // 無意味なので無視
 
   const srcView = new Uint8Array(srcBuffer);
@@ -63,7 +58,7 @@ function _decode(
   return {
     readByteCount,
     writtenRuneCount,
-    pending: [],
+    pendingBytes: [],
   };
 }
 
@@ -154,6 +149,23 @@ export namespace UsAscii {
         ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
         maxBytesPerRune: _MAX_BYTES_PER_RUNE,
       });
+    }
+  }
+
+  export class DecoderStream extends TextEncoding.DecoderStream {
+    constructor(options: DecoderOptions = {}) {
+      super({
+        name: _LABEL,
+        fatal: options?.fatal === true,
+        replacementRune: _getReplacement(options?.replacementChar).rune,
+        decode: _decode,
+        ignoreBOM: true, // すなわちBOMがあったらエラーになるか置換される
+        maxBytesPerRune: _MAX_BYTES_PER_RUNE,
+      });
+    }
+
+    override get [Symbol.toStringTag](): string {
+      return "UsAscii.DecoderStream";
     }
   }
 

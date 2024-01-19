@@ -44,10 +44,14 @@ class _CoderCommon {
   }
 }
 
-type _DecoderDecodeIntoResult = {
+export type DecodeResult = {
   readByteCount: SafeInteger;
   writtenRuneCount: SafeInteger;
-  pending: Array<Uint8>;
+  pendingBytes: Array<Uint8>;
+};
+
+type _DecoderDecodeResult = DecodeResult & {
+  writtenRunesAsString: string;
 };
 
 type _DecoderCommonInit = {
@@ -62,7 +66,7 @@ type _DecoderCommonInit = {
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
     },
-  ) => _DecoderDecodeIntoResult;
+  ) => DecodeResult;
   ignoreBOM: boolean;
   maxBytesPerRune: SafeInteger;
 };
@@ -76,7 +80,7 @@ class _DecoderCommon extends _CoderCommon {
       fatal: boolean;
       replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
     },
-  ) => _DecoderDecodeIntoResult;
+  ) => DecodeResult;
   readonly #ignoreBOM: boolean;
   readonly #replacementRune: Rune;
   readonly #maxBytesPerRune: SafeInteger;
@@ -102,15 +106,58 @@ class _DecoderCommon extends _CoderCommon {
   }
 
   decode(
-    srcBuffer: ArrayBuffer,
-    dstRunes: Array<Rune>,
-    allowPending: boolean,
-  ): _DecoderDecodeIntoResult {
-    return this.#decode(srcBuffer, dstRunes, {
-      allowPending,
-      fatal: this.fatal,
-      replacementRune: this.replacementRune,
-    });
+    removeBOM: boolean,
+    inStreaming: boolean,
+    previousPendingBytes: Array<Uint8>,
+    srcBufferLike?: BufferSource,
+  ): _DecoderDecodeResult {
+    let srcBuffer: ArrayBuffer | undefined;
+    if (srcBufferLike === undefined) {
+      srcBuffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
+    } else if (ArrayBuffer.isView(srcBufferLike)) {
+      srcBuffer = srcBufferLike.buffer;
+    } else if (srcBufferLike instanceof ArrayBuffer) {
+      srcBuffer = srcBufferLike;
+    }
+    if (!srcBuffer) {
+      throw new TypeError("input");
+    }
+
+    const buffer = new ArrayBuffer(
+      srcBuffer.byteLength + previousPendingBytes.length,
+    );
+    const bufferView = new Uint8Array(buffer);
+    for (let i = 0; i < previousPendingBytes.length; i++) {
+      bufferView[i] = previousPendingBytes[i];
+    }
+
+    //XXX $03
+    bufferView.set(new Uint8Array(srcBuffer), previousPendingBytes.length);
+
+    const runes: Array<Rune> = [];
+    const { readByteCount, writtenRuneCount, pendingBytes } = this.#decode(
+      buffer,
+      runes,
+      {
+        allowPending: inStreaming,
+        fatal: this.fatal,
+        replacementRune: this.replacementRune,
+      },
+    );
+
+    let writtenRunesAsString: string;
+    if ((removeBOM === true) && (runes[0] === TextEncoding.BOM)) {
+      writtenRunesAsString = runes.slice(1).join("");
+    } else {
+      writtenRunesAsString = runes.join("");
+    }
+
+    return {
+      readByteCount,
+      writtenRuneCount,
+      pendingBytes,
+      writtenRunesAsString,
+    };
   }
 }
 
@@ -119,9 +166,7 @@ export type EncodeResult = {
   writtenByteCount: SafeInteger;
 };
 
-type _EncoderDecodeIntoResult = {
-  readRuneCount: SafeInteger;
-  writtenByteCount: SafeInteger;
+type _EncoderEncodeResult = EncodeResult & {
   writtenBuffer: ArrayBuffer;
   pendingChar: string;
 };
@@ -184,16 +229,16 @@ class _EncoderCommon extends _CoderCommon {
 
   encode(
     prependBOM: boolean,
-    previousPending: string,
+    previousPendingChar: string,
     srcRunesAsString?: string,
     dstBuffer?: ArrayBuffer,
-  ): _EncoderDecodeIntoResult {
+  ): _EncoderEncodeResult {
     if (this.#strict === true) {
       if (StringEx.isString(srcRunesAsString) !== true) {
         throw new TypeError("srcRunesAsString");
       }
     }
-    //TODO 第2引数がbufferではない場合どうなる
+    //TODO encodeInto第2引数がbufferではない場合どうなる
     const dstBufferSpecified = !!dstBuffer;
 
     let runesAsString = (srcRunesAsString === undefined)
@@ -206,7 +251,7 @@ class _EncoderCommon extends _CoderCommon {
     ) {
       runesAsString = BOM + runesAsString;
     } else {
-      runesAsString = previousPending + runesAsString;
+      runesAsString = previousPendingChar + runesAsString;
     }
 
     let pendingChar = "";
@@ -214,7 +259,7 @@ class _EncoderCommon extends _CoderCommon {
     if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
       pendingChar = lastChar;
       runesAsString = runesAsString.slice(0, -1);
-    } //TODO 末尾に単独の上位サロゲートが連続してたらブラウザ等はどうしてるのか
+    } //TODO 末尾に単独の上位サロゲートが連続してたらブラウザ等はどうしてるのか → 上位でも下位でも単独サロゲートはU+FFFDとしてエンコード
 
     let buffer: ArrayBuffer;
     if (dstBufferSpecified === true) {
@@ -268,47 +313,19 @@ export abstract class Decoder implements TextDecoder {
   }
 
   decode(input?: BufferSource, options?: TextDecodeOptions): string {
-    let inputBuffer: ArrayBuffer | undefined;
-    if (input === undefined) {
-      inputBuffer = new ArrayBuffer(0); // TextDecoderにあわせた(つもり)
-    } else if (ArrayBuffer.isView(input)) {
-      inputBuffer = input.buffer;
-    } else if (input instanceof ArrayBuffer) {
-      inputBuffer = input;
-    }
-    if (!inputBuffer) {
-      throw new TypeError("input");
-    }
+    const removeBOM = this.#common.ignoreBOM !== true;
+    const inStreaming = options?.stream === true;
+    const {
+      // readByteCount,
+      // writtenRuneCount,
+      pendingBytes,
+      writtenRunesAsString,
+    } = this.#common.decode(removeBOM, inStreaming, [...this.#pending], input);
 
-    const allowPending = options?.stream === true;
-    const buffer = new ArrayBuffer(
-      inputBuffer.byteLength + this.#pending.length,
-    );
-    const bufferView = new Uint8Array(buffer);
-    for (let i = 0; i < this.#pending.length; i++) {
-      bufferView[i] = this.#pending[i];
-    }
-
-    //XXX $03
-    bufferView.set(new Uint8Array(inputBuffer), this.#pending.length);
-
-    const runes: Array<Rune> = [];
-    const { /*readByteCount, writtenRuneCount,*/ pending } = this.#common
-      .decode(
-        buffer,
-        runes,
-        allowPending,
-      );
-    // console.assert(buffer.byteLength === readByteCount);
     this.#pending.splice(0);
-    this.#pending.push(...pending);
+    this.#pending.push(...pendingBytes);
 
-    if (this.#common.ignoreBOM !== true) {
-      if (runes[0] === TextEncoding.BOM) {
-        return runes.slice(1).join("");
-      }
-    }
-    return runes.join("");
+    return writtenRunesAsString;
   }
 }
 
@@ -317,27 +334,43 @@ export abstract class DecoderStream implements TextDecoderStream {
 
   readonly #stream: TransformStream<Uint8Array, string>;
 
-  #firstChunkLoaded = false;
+  readonly #pendingBytes: Array<Uint8>;
+
+  #firstChunkLoaded: boolean;
 
   protected constructor(init: _DecoderCommonInit) {
     this.#common = new _DecoderCommon(init);
 
     const self = (): DecoderStream => this;
     const transformer: Transformer<Uint8Array, string> = {
-      // transform(
-      //   chunk: Uint8Array,
-      //   controller: TransformStreamDefaultController<string>,
-      // ): void {
-      //   const decoded = self()._decodeChunk(chunk, false);
-      //   controller.enqueue(decoded);
-      // },
-      // flush(controller: TransformStreamDefaultController<string>): void {
-      //   const decoded = self()._decodeChunk(undefined, true);
-      //   controller.enqueue(decoded);
-      // },
+      transform(
+        chunk: Uint8Array,
+        controller: TransformStreamDefaultController<string>,
+      ): void {
+        try {
+          const decoded = self()._decodeChunk(chunk, false);
+          if (decoded.length > 0) {
+            controller.enqueue(decoded);
+          }
+        } catch (exception) {
+          controller.error(exception);
+        }
+      },
+      flush(controller: TransformStreamDefaultController<string>): void {
+        try {
+          const decoded = self()._decodeChunk(undefined, true);
+          if (decoded.length > 0) {
+            controller.enqueue(decoded);
+          }
+        } catch (exception) {
+          controller.error(exception);
+        }
+      },
     };
 
     this.#stream = new _TransformStream<Uint8Array, string>(transformer);
+    this.#pendingBytes = [];
+    this.#firstChunkLoaded = false;
   }
 
   get encoding(): string {
@@ -362,9 +395,24 @@ export abstract class DecoderStream implements TextDecoderStream {
 
   abstract get [Symbol.toStringTag](): string;
 
-  // protected _decodeChunk(chunk = Uint8Array.of(0), flush: boolean): string {
-  //   //TODO
-  // }
+  protected _decodeChunk(chunk = new Uint8Array(), flush: boolean): string {
+    let removeBOM = false;
+    if (this.#firstChunkLoaded !== true) {
+      this.#firstChunkLoaded = true;
+      removeBOM = this.ignoreBOM !== true;
+    }
+
+    const { pendingBytes, writtenRunesAsString } = this.#common.decode(
+      removeBOM,
+      flush !== true,
+      [...this.#pendingBytes],
+      chunk,
+    );
+    //console.log([...writtenRunesAsString].map(s=> s.codePointAt(0)?.toString(16)))
+    this.#pendingBytes.splice(0);
+    this.#pendingBytes.push(...pendingBytes);
+    return writtenRunesAsString;
+  }
 }
 
 export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"ではない為) */ {
@@ -418,20 +466,17 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
   }
 }
 
-type _EncoderStreamPending = {
-  highSurrogate: string;
-};
-
 export abstract class EncoderStream
   implements
     TransformStream /* implements TextEncoderStream (encodingが"utf-8"ではない為) */ {
   readonly #common: _EncoderCommon;
 
-  readonly #pending: _EncoderStreamPending;
-
   readonly #stream: TransformStream<string, Uint8Array>;
 
-  #firstChunkLoaded = false;
+  // #pendingChar.lengthが1を超えることは無い
+  #pendingChar: string;
+
+  #firstChunkLoaded: boolean;
 
   protected constructor(init: _EncoderCommonInit) {
     this.#common = new _EncoderCommon(init);
@@ -444,20 +489,21 @@ export abstract class EncoderStream
       ): void {
         const encoded = self()._encodeChunk(chunk);
         controller.enqueue(encoded);
+        //TODO error
       },
       flush(controller: TransformStreamDefaultController<Uint8Array>): void {
-        if (self().#pending.highSurrogate.length > 0) {
+        if (self().#pendingChar.length > 0) {
           controller.enqueue(
             Uint8Array.from(self().#common.replacementBytes),
           );
         }
+        //TODO error
       },
     };
 
-    this.#pending = Object.seal({
-      highSurrogate: "",
-    });
     this.#stream = new _TransformStream<string, Uint8Array>(transformer);
+    this.#pendingChar = "";
+    this.#firstChunkLoaded = false;
   }
 
   get encoding(): string {
@@ -496,12 +542,13 @@ export abstract class EncoderStream
       this.#firstChunkLoaded = true;
       prependBOM = this.prependBOM === true;
     }
-    const { writtenBuffer, pendingChar } = this.#common.encode(
+
+    const { pendingChar, writtenBuffer } = this.#common.encode(
       prependBOM,
-      this.#pending.highSurrogate,
+      this.#pendingChar,
       chunk,
     );
-    this.#pending.highSurrogate = pendingChar;
+    this.#pendingChar = pendingChar;
     return new Uint8Array(writtenBuffer);
   }
 }
