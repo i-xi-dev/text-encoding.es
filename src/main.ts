@@ -266,7 +266,7 @@ class _EncoderCommon extends _CoderCommon {
 
     let buffer: ArrayBuffer;
     if (dstBufferSpecified === true) {
-      buffer = dstBuffer;
+      buffer = dstBuffer as ArrayBuffer;
     } else {
       buffer = new ArrayBuffer(runesAsString.length * this.#maxBytesPerRune);
     }
