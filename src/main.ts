@@ -229,6 +229,7 @@ class _EncoderCommon extends _CoderCommon {
 
   encode(
     prependBOM: boolean,
+    inStreaming: boolean,
     previousPendingChar: string,
     srcRunesAsString?: string,
     dstBuffer?: ArrayBuffer,
@@ -255,10 +256,12 @@ class _EncoderCommon extends _CoderCommon {
     }
 
     let pendingChar = "";
-    const lastChar = runesAsString.slice(-1);
-    if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
-      pendingChar = lastChar;
-      runesAsString = runesAsString.slice(0, -1);
+    if (inStreaming === true) {
+      const lastChar = runesAsString.slice(-1);
+      if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
+        pendingChar = lastChar;
+        runesAsString = runesAsString.slice(0, -1);
+      }
     }
 
     let buffer: ArrayBuffer;
@@ -440,7 +443,12 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
    * @see [TextEncoder.encode](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encode)
    */
   encode(input?: string): Uint8Array {
-    const { writtenBuffer } = this.#common.encode(this.prependBOM, "", input);
+    const { writtenBuffer } = this.#common.encode(
+      this.prependBOM,
+      false,
+      "",
+      input,
+    );
     return new Uint8Array(writtenBuffer);
   }
 
@@ -460,6 +468,7 @@ export abstract class Encoder /* implements TextEncoder (encodingが"utf-8"で�
 
     const { readCharCount, writtenByteCount } = this.#common.encode(
       this.prependBOM,
+      false,
       "",
       source,
       destination.buffer,
@@ -558,6 +567,7 @@ export abstract class EncoderStream
 
     const { pendingChar, writtenBuffer } = this.#common.encode(
       prependBOM,
+      true,
       this.#pendingChar,
       chunk,
     );
