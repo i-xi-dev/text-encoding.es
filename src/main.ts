@@ -46,7 +46,7 @@ class _CoderCommon {
 
 export type DecodeResult = {
   readByteCount: SafeInteger;
-  writtenRuneCount: SafeInteger; //TODO 要らないのでは
+  writtenRuneCount: SafeInteger; //XXX 要らないのでは
   pendingBytes: Array<Uint8>;
 };
 

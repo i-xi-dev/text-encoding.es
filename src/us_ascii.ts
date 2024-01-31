@@ -1,5 +1,13 @@
 import * as TextEncoding from "./main.ts";
-import { CodePoint, Rune, StringEx, Uint7, Uint8 } from "../deps.ts";
+import {
+  CodePoint,
+  Radix,
+  Rune,
+  SafeIntegerFormat,
+  StringEx,
+  Uint7,
+  Uint8,
+} from "../deps.ts";
 
 const _LABEL = "US-ASCII";
 
@@ -11,6 +19,11 @@ type _UsAsciiCharBytes = Array<Uint8>; // [Uint8] ;
 //   // deno-lint-ignore no-control-regex
 //   return /^[\u{0}-\u{7F}]$/u.test(test);
 // }
+
+const _formatOptions = SafeIntegerFormat.Options.resolve({
+  minIntegralDigits: 2,
+  radix: Radix.HEXADECIMAL,
+});
 
 function _decode(
   srcBuffer: ArrayBuffer,
@@ -40,7 +53,7 @@ function _decode(
     } else {
       if (options.fatal === true) {
         throw new TypeError(
-          `decode-error: 0x${byte.toString(16).toUpperCase().padStart(2, "0")}`, //TODO number-format
+          `decode-error: 0x${SafeIntegerFormat.format(byte, _formatOptions)}`,
         );
       } else {
         dstRunes.push(options.replacementRune);
