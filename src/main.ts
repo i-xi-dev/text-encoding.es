@@ -1,12 +1,11 @@
 import {
   _TransformStream,
   CodePoint,
-  Rune,
+  RuneString,
   SafeInteger,
   StringEx,
   Uint8,
 } from "../deps.ts";
-import { TextEncoding } from "../mod.ts";
 
 /*XXX
 - $03
@@ -57,14 +56,14 @@ type _DecoderDecodeResult = DecodeResult & {
 type _DecoderCommonInit = {
   name: string;
   fatal: boolean;
-  replacementRune: Rune;
+  replacementRune: RuneString;
   decode: (
     srcBuffer: ArrayBuffer,
-    dstRunes: Array<Rune>,
+    dstRunes: Array<RuneString>,
     options: {
       allowPending: boolean;
       fatal: boolean;
-      replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
+      replacementRune: RuneString; // RuneStringにしてるが、U+10000以上には対応しない
     },
   ) => DecodeResult;
   ignoreBOM: boolean;
@@ -74,15 +73,15 @@ type _DecoderCommonInit = {
 class _DecoderCommon extends _CoderCommon {
   readonly #decode: (
     srcBuffer: ArrayBuffer,
-    dstRunes: Array<Rune>,
+    dstRunes: Array<RuneString>,
     options: {
       allowPending: boolean;
       fatal: boolean;
-      replacementRune: Rune; // Runeにしてるが、U+10000以上には対応しない
+      replacementRune: RuneString; // RuneStringにしてるが、U+10000以上には対応しない
     },
   ) => DecodeResult;
   readonly #ignoreBOM: boolean;
-  readonly #replacementRune: Rune;
+  readonly #replacementRune: RuneString;
   readonly #maxBytesPerRune: SafeInteger;
 
   constructor(init: _DecoderCommonInit) {
@@ -97,7 +96,7 @@ class _DecoderCommon extends _CoderCommon {
     return this.#ignoreBOM;
   }
 
-  get replacementRune(): Rune {
+  get replacementRune(): RuneString {
     return this.#replacementRune;
   }
 
@@ -134,7 +133,7 @@ class _DecoderCommon extends _CoderCommon {
     //XXX $03
     bufferView.set(new Uint8Array(srcBuffer), previousPendingBytes.length);
 
-    const runes: Array<Rune> = [];
+    const runes: Array<RuneString> = [];
     const { readByteCount, writtenRuneCount, pendingBytes } = this.#decode(
       buffer,
       runes,
@@ -146,7 +145,7 @@ class _DecoderCommon extends _CoderCommon {
     );
 
     let writtenRunesAsString: string;
-    if ((removeBOM === true) && (runes[0] === TextEncoding.BOM)) {
+    if ((removeBOM === true) && (runes[0] === BOM)) {
       writtenRunesAsString = runes.slice(1).join("");
     } else {
       writtenRunesAsString = runes.join("");
@@ -257,10 +256,12 @@ class _EncoderCommon extends _CoderCommon {
 
     let pendingChar = "";
     if (inStreaming === true) {
-      const lastChar = runesAsString.slice(-1);
-      if (CodePoint.isHighSurrogateCodePoint(lastChar.codePointAt(0))) {
-        pendingChar = lastChar;
-        runesAsString = runesAsString.slice(0, -1);
+      if (runesAsString.length > 0) {
+        const lastChar = runesAsString.slice(-1);
+        if (CodePoint.isHighSurrogate(lastChar.codePointAt(0) as CodePoint)) {
+          pendingChar = lastChar;
+          runesAsString = runesAsString.slice(0, -1);
+        }
       }
     }
 

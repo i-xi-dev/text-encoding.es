@@ -2,7 +2,7 @@ import * as TextEncoding from "./main.ts";
 import {
   CodePoint,
   Radix,
-  Rune,
+  RuneString,
   SafeIntegerFormat,
   StringEx,
   Uint7,
@@ -27,11 +27,11 @@ const _formatOptions = SafeIntegerFormat.Options.resolve({
 
 function _decode(
   srcBuffer: ArrayBuffer,
-  dstRunes: Array<Rune>,
+  dstRunes: Array<RuneString>,
   options: {
     allowPending: boolean;
     fatal: boolean;
-    replacementRune: Rune;
+    replacementRune: RuneString;
   },
 ): TextEncoding.DecodeResult {
   void options.allowPending; // 無意味なので無視
@@ -117,7 +117,7 @@ const _DEFAULT_REPLACEMENT_BYTES: _UsAsciiCharBytes = [0x3F]; // "?"
 
 function _getReplacement(
   replacementRune: unknown,
-): { rune: Rune; bytes: _UsAsciiCharBytes } {
+): { rune: RuneString; bytes: _UsAsciiCharBytes } {
   if (StringEx.isString(replacementRune) && (replacementRune.length === 1)) {
     try {
       const tmp = new ArrayBuffer(_MAX_BYTES_PER_RUNE);
